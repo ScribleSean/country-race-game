@@ -1,140 +1,256 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Country Race</title>
 <meta name="description" content="A live two-player race to name every country in the world.">
-<style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
+<meta name="theme-color" content="#f6f8f9">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Inter:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Inter:wght@400;500;600;700&display=swap">
 <style>
-/* Layout: one column; control bar, then a big pannable map, then continent tallies.
-   One calm light look on purpose (white, soft green, gray, pale blue), the same in every viewer theme. */
+/* Layout: the whole game fits the screen and the page itself never scrolls.
+   Top: scoreboard and clock. Wide screens: input above the map, found list in a column beside it.
+   Narrow screens: input, then the found list, then the map. Lobby and results are a card over the play area.
+   One calm light look on purpose (white, soft gray, pale blue), the same in every viewer theme. */
 :root{
   color-scheme:light;
-  --bg:#f6f8f9; --panel:#ffffff; --fg:#24323a; --muted:#74848d; --line:#e2e8eb;
+  --bg:#f6f8f9; --panel:#ffffff; --fg:#24323a; --ink:#1c2a31; --muted:#5f6f78; --line:#e2e8eb;
   --ocean:#dceaf4; --land:#ffffff; --border:#cbd5db; --pin:#b4c0c7;
-  --accent:#3f7fc8; --goodline:#5aae7b;
-  --miss:#c26571; --missland:#f5dfe2; --none:#d5dce0;
+  --accent:#3f7fc8; --goodline:#5aae7b; --good:#2f7a4c;
+  --miss:#b04a58; --missland:#f5dfe2; --none:#d5dce0;
   --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
   --body:Inter,ui-sans-serif,system-ui,sans-serif;
 }
-body{background:var(--bg);color:var(--fg);font-family:var(--body)}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none}
+body{background:var(--bg);color:var(--fg);font:14px/1.35 var(--body);-webkit-text-size-adjust:100%}
 [hidden]{display:none!important}
-.app{max-width:1200px;margin:0 auto;padding-block:20px 40px;
-  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
-  display:flex;flex-direction:column;gap:14px}
-h1{font-family:var(--display);font-weight:800;font-size:clamp(28px,4vw,40px);margin:0;letter-spacing:-.01em;text-wrap:balance}
-.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
-.guesswrap{position:relative;flex:1 1 260px;min-width:0}
-#guess{width:100%;box-sizing:border-box;font:500 18px var(--body);padding:12px 14px;border-radius:8px;border:2px solid var(--line);background:var(--bg);color:var(--fg)}
+.app{position:fixed;top:0;left:0;right:0;height:var(--vh,100dvh);max-width:1500px;margin:0 auto;display:flex;flex-direction:column;gap:8px;
+  padding:calc(8px + env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
+button,select,input{font-family:var(--body)}
+button,select{flex:none;font-weight:600;font-size:14px;border-radius:10px;padding:10px 14px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer;white-space:nowrap}
+button.go{background:var(--accent);border-color:var(--accent);color:#fff}
+button:hover:not(:disabled){filter:brightness(.97)}
+button:disabled{opacity:.5;cursor:not-allowed}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.link{border:0;background:none;padding:4px;color:var(--muted);font-weight:500;text-decoration:underline;align-self:center}
+.lbl{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.dot{width:10px;height:10px;border-radius:50%;flex:none;display:inline-block}
+
+/* top: title, scoreboard, clock */
+.top{display:flex;align-items:center;gap:10px;min-height:44px;flex:none}
+h1{font:800 22px var(--display);margin:0;letter-spacing:-.01em;white-space:nowrap}
+.board{display:flex;gap:8px;flex:1;min-width:0}
+.pchip{display:flex;align-items:baseline;gap:6px;min-width:0;padding:5px 12px;border-radius:12px;background:var(--c);color:var(--ink);font-weight:600;box-shadow:inset 0 0 0 1px rgba(28,42,49,.08)}
+.pchip.lead{box-shadow:inset 0 0 0 2px rgba(28,42,49,.6)}
+.pname{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.pcount{font:800 22px/1 var(--display);font-variant-numeric:tabular-nums}
+.ppct{font-size:12px;font-variant-numeric:tabular-nums;opacity:.85}
+.plead,.ptag{font-size:11px;font-weight:700;background:rgba(255,255,255,.65);padding:1px 7px;border-radius:999px;white-space:nowrap;align-self:center}
+.clock{font:800 24px/1 var(--display);font-variant-numeric:tabular-nums;margin-left:auto;flex:none}
+.share{height:6px;border-radius:3px;background:var(--line);position:relative;overflow:hidden;flex:none}
+.share i{position:absolute;top:0;bottom:0;width:0;transition:width .3s}
+#shareMe{left:0} #shareOpp{right:0}
+.status{color:var(--muted);font-size:13px;flex:none}
+
+/* play area */
+.main{flex:1;min-height:0;position:relative;display:grid;gap:8px;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(96px,1fr) auto}
+.play{display:flex;gap:8px;min-width:0}
+.guesswrap{position:relative;flex:1;min-width:0}
+#guess{width:100%;font-weight:500;font-size:18px;padding:12px 14px;border-radius:10px;border:2px solid var(--line);background:var(--panel);color:var(--fg)}
 #guess:focus{outline:none;border-color:var(--accent)}
 #guess.flash{border-color:var(--goodline)}
 #guess.pending{border-color:var(--goodline);border-style:dashed}
-.hint{position:absolute;right:10px;top:50%;transform:translateY(-50%);font:600 13px var(--body);padding:4px 9px;border-radius:999px;background:var(--line);color:var(--muted);pointer-events:none;white-space:nowrap;max-width:60%;overflow:hidden;text-overflow:ellipsis}
-.hint.pending{background:#e3f3e9;color:#2f7a4c}
-#guess:disabled{opacity:.55}
-.stat{display:flex;flex-direction:column;align-items:flex-end;min-width:84px}
-.lbl{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.num{font:800 26px var(--display);font-variant-numeric:tabular-nums}
-button,select{flex:none;font:600 14px var(--body);border-radius:8px;padding:10px 14px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer;white-space:nowrap}
-.stat{flex:none}
-button.go{background:var(--accent);border-color:var(--accent);color:#fff}
-button:hover{filter:brightness(1.08)}
-button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.players{display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-height:30px}
-.chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font-weight:600;font-size:13px}
-.dot{width:10px;height:10px;border-radius:50%;flex:none}
-.chip{font-size:14px;padding:6px 12px}
-.chip .cnt{font:800 16px var(--display);font-variant-numeric:tabular-nums;margin-left:2px}
-.chip.lead{border-color:var(--goodline);box-shadow:inset 0 0 0 1px var(--goodline)}
-.chip.ready{border-color:var(--goodline);box-shadow:inset 0 0 0 1px var(--goodline)}
-.chip.ready .tag{color:var(--goodline)}
-.count{position:absolute;inset:0;display:grid;place-items:center;font:800 clamp(72px,14vw,160px) var(--display);color:var(--fg);background:color-mix(in srgb,var(--ocean) 55%,transparent);pointer-events:none}
-.chip .tag{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.status{color:var(--muted);font-size:13px}
-.mapwrap{position:relative;background:var(--ocean);border-radius:12px;overflow:hidden;border:1px solid var(--line);touch-action:none}
-#map{display:block;width:100%;height:auto;cursor:grab}
+#guess:disabled{opacity:.6;background:var(--bg)}
+.hint{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-weight:600;font-size:13px;padding:4px 9px;border-radius:999px;background:var(--line);color:var(--muted);pointer-events:none;white-space:nowrap;max-width:60%;overflow:hidden;text-overflow:ellipsis}
+.hint.pending{background:#e3f3e9;color:var(--good)}
+
+/* found list */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}
+.panelhead{display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid var(--line);flex:none}
+.tabs{display:flex;gap:4px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
+.tab{padding:5px 10px;font-size:12px;border-radius:999px;border-color:transparent;background:none;color:var(--muted)}
+.tab[aria-selected="true"]{background:var(--bg);border-color:var(--line);color:var(--fg)}
+#giveUp{padding:5px 10px;font-size:12px;color:var(--muted)}
+#giveUp.sure{color:var(--miss);border-color:var(--miss)}
+.conts{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;padding:6px 8px 0;font-size:11px;text-align:center;flex:none}
+.cc{background:var(--bg);border-radius:6px;padding:3px 2px;color:var(--muted);white-space:nowrap;overflow:hidden}
+.cc b{display:block;color:var(--fg);font-variant-numeric:tabular-nums;font-size:12px}
+.cc .long{display:none}
+.list{flex:1;min-height:0;overflow-y:auto;padding:8px 10px;overscroll-behavior:contain}
+.names{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:13px}
+.names .n{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.names .n.missed{color:var(--miss)}
+.names .n.new{animation:pop .9s ease-out}
+@keyframes pop{from{background:#e3f3e9;box-shadow:0 0 0 4px #e3f3e9}to{background:transparent;box-shadow:0 0 0 4px transparent}}
+.grp{padding:6px 0 8px;border-top:1px solid var(--line)}
+.grp:first-child{border-top:0;padding-top:0}
+.grp h3{font:700 13px var(--display);margin:0 0 5px;display:flex;justify-content:space-between;gap:8px}
+.grp h3 span{font:600 12px var(--body);color:var(--muted);font-variant-numeric:tabular-nums}
+.empty{color:var(--muted);font-size:13px}
+
+/* map */
+.mapwrap{position:relative;background:var(--ocean);border-radius:12px;overflow:hidden;border:1px solid var(--line);touch-action:none;min-height:0;
+  height:min(49vw,calc(var(--vh,100dvh) * .3))}
+#map{display:block;width:100%;height:100%;cursor:grab}
 #map .land{fill:var(--land);stroke:var(--border);stroke-width:.6;vector-effect:non-scaling-stroke;transition:fill .25s}
 #map .land.other{fill:#f1f4f6}
 #map .land.missed{fill:var(--missland)}
-.legend{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;font-size:14px;font-weight:500}
-.legend .key{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
-.legend b{font:800 16px var(--display);font-variant-numeric:tabular-nums}
-.sw{width:14px;height:14px;border-radius:4px;flex:none;border:1px solid var(--line)}
-.swatches{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-.swatch{width:26px;height:26px;padding:0;border-radius:50%;border:2px solid var(--panel);flex:none;cursor:pointer}
-.swatch.on{outline:2px solid var(--fg);outline-offset:2px}
-.swatch:disabled{opacity:.2;cursor:not-allowed}
 #map .pin{fill:var(--pin);stroke:var(--panel);vector-effect:non-scaling-stroke;stroke-width:1}
-#map .pin.missed{fill:var(--miss);stroke:var(--miss)}
 #map .mlabel{font-family:var(--body);font-weight:700;fill:var(--fg);stroke:var(--panel);paint-order:stroke;stroke-linejoin:round;pointer-events:none}
 #map .mlabel.missed{fill:var(--miss)}
-.zoomctl{position:absolute;right:10px;bottom:10px;display:flex;flex-direction:column;gap:6px}
-.zoomctl button{width:36px;height:36px;padding:0;font-size:18px;background:var(--panel)}
-#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20}
+.count{position:absolute;inset:0;display:grid;place-items:center;font:800 clamp(56px,14vw,160px) var(--display);color:var(--fg);background:color-mix(in srgb,var(--ocean) 55%,transparent);pointer-events:none}
+.zoomctl{position:absolute;right:8px;bottom:8px;display:flex;gap:4px}
+.zoomctl button{width:32px;height:32px;padding:0;font-size:16px}
+
+/* lobby and results card */
+.sheet{position:absolute;inset:0;z-index:5;display:flex;overflow-y:auto;padding:8px;border-radius:12px;background:color-mix(in srgb,var(--bg) 80%,transparent);overscroll-behavior:contain}
+.card{margin:auto;width:min(100%,460px);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:12px;box-shadow:0 8px 30px rgba(36,50,58,.08)}
+.card h2{font:800 28px/1.1 var(--display);margin:0;letter-spacing:-.01em;text-wrap:balance}
+.sub{color:var(--muted);margin:-6px 0 0}
+.result{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.rstat:first-child:nth-last-child(2){grid-column:1/-1}
+.rstat{border-radius:12px;padding:10px 12px;background:var(--c);color:var(--ink);min-width:0}
+.rstat .who{font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rstat .big{font:800 36px/1.05 var(--display);font-variant-numeric:tabular-nums}
+.rstat .small{font-size:12px}
+.rnone{grid-column:1/-1;color:var(--muted);font-size:13px;display:flex;align-items:center;gap:6px}
+.codebox{display:flex;align-items:center;gap:10px;background:var(--bg);border-radius:12px;padding:8px 8px 8px 12px}
+.codebox b{font:800 26px/1 var(--display);letter-spacing:.12em;flex:1}
+.who{display:flex;flex-direction:column;gap:6px}
+.prow{display:flex;align-items:center;gap:8px;font-weight:600;min-width:0}
+.prow .dot{width:14px;height:14px}
+.prow .tag{margin-left:auto;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.prow.ready .tag{color:var(--good)}
+details.setup{border-top:1px solid var(--line);padding-top:10px}
+details.setup summary{cursor:pointer;font-weight:600;color:var(--muted);font-size:13px}
+details.setup[open] summary{margin-bottom:10px}
+.fields{display:flex;flex-direction:column;gap:12px}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row .field{flex:1 1 130px}
+.swatches{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:4px}
+.swcell{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0}
+.swatch{width:30px;height:30px;padding:0;border-radius:50%;border:3px solid var(--panel);box-shadow:0 0 0 1px var(--border)}
+.swatch.on{box-shadow:0 0 0 2px var(--fg)}
+.swatch.taken,.swatch.taken:disabled{opacity:1;box-shadow:0 0 0 2px var(--muted);cursor:not-allowed}
+.swcap{font-size:10px;font-weight:600;color:var(--muted);height:13px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card input[type=text]{width:100%;font-size:16px;font-weight:500;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--fg)}
+.card select{width:100%;font-size:16px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.actions .go{flex:1 1 160px;padding:13px 14px;font-size:16px}
+.note{color:var(--muted);font-size:13px;margin:-4px 0 0;min-height:1em}
+.join{display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:12px}
+.join #code{flex:1 1 90px;min-width:0;text-transform:uppercase}
+.credit{color:var(--muted);font-size:11px;margin:0;text-align:center}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20;max-width:90vw;text-align:center}
 #toast.on{opacity:1}
-.continents{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px 28px;padding-top:6px}
-.cont{border-top:1px solid var(--line);padding-top:10px;min-width:0}
-.cont h2{font:700 16px var(--display);margin:0 0 8px;display:flex;justify-content:space-between;gap:8px}
-.cont h2 span{font:600 13px var(--body);color:var(--muted);font-variant-numeric:tabular-nums}
-.names{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:13px}
-.names .n{display:inline-flex;align-items:center;gap:5px}
-.names .n.missed{color:var(--miss)}
-.empty{color:var(--muted);font-size:13px}
-.room{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:14px}
-.room b{font:800 18px var(--display);letter-spacing:.08em}
-#code{width:7.5em;font:600 14px var(--body);padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--fg);text-transform:uppercase}
-#code:focus{outline:none;border-color:var(--accent)}
-@media (prefers-reduced-motion: reduce){#toast,#map .land{transition:none}}
+
+@media (max-width:899px){
+  h1{display:none}
+  .app[data-phase="home"] .top,.app[data-phase="lobby"] .top{display:none}
+  .pchip{flex:1 1 0;padding:5px 9px;gap:5px}
+  .plead .w{display:none}
+}
+@media (max-width:899px) and (max-height:480px) and (orientation:landscape){
+  .main{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+  .play{grid-column:1 / -1}
+  .mapwrap{height:auto}
+}
+@media (min-width:900px){
+  .app{gap:10px;padding-top:calc(12px + env(safe-area-inset-top,0px));padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+  .main{gap:10px;grid-template-columns:minmax(0,1fr) 320px;grid-template-rows:auto minmax(0,1fr)}
+  .play{grid-column:1;grid-row:1}
+  .mapwrap{grid-column:1;grid-row:2;height:auto}
+  .panel{grid-column:2;grid-row:1 / span 2}
+  .conts{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .cc .long{display:inline} .cc .short{display:none}
+  .board{flex:none}
+  .pchip{padding:6px 14px}
+  .zoomctl{flex-direction:column;right:10px;bottom:10px}
+  .zoomctl button{width:36px;height:36px;font-size:18px}
+  .clock{font-size:28px}
+}
+@media (prefers-reduced-motion: reduce){
+  #toast,#map .land,.share i{transition:none}
+  .names .n.new{animation:none}
+}
 </style>
 </head><body>
 
-<div class="app">
-  <header>
+<div class="app" id="app" data-phase="home">
+  <header class="top">
     <h1>Country Race</h1>
+    <div class="board" id="board" hidden></div>
+    <span class="clock" id="clock" role="timer" title="Time">15:00</span>
+    <button id="sheetBtn" type="button" hidden>Results</button>
   </header>
-  <section class="bar">
-    <div class="guesswrap">
-      <input id="guess" placeholder="Type a country" autocomplete="off" autocapitalize="off" spellcheck="false" disabled>
-      <span class="hint" id="hint" hidden aria-live="polite"></span>
+  <div class="share" id="share" role="img" aria-label="Share of the world found" hidden><i id="shareMe"></i><i id="shareOpp"></i></div>
+  <div class="status" id="status" role="status" hidden></div>
+  <main class="main">
+    <div class="play">
+      <div class="guesswrap">
+        <input id="guess" placeholder="Type a country" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" aria-label="Type a country" disabled>
+        <span class="hint" id="hint" hidden aria-live="polite"></span>
+      </div>
     </div>
-    <div class="stat"><span class="lbl">Found</span><span class="num" id="score">0/197</span></div>
-    <div class="stat"><span class="lbl">Time</span><span class="num" id="clock">15:00</span></div>
-    <select id="dur" aria-label="Time limit">
-      <option value="600">10 min</option>
-      <option value="900" selected>15 min</option>
-      <option value="1200">20 min</option>
-      <option value="0">No limit</option>
-    </select>
-    <button id="startBtn" class="go">Start game</button>
-    <button id="giveUp" hidden>Give up</button>
-  </section>
-  <div class="room" id="room">
-    <span id="roomSolo" class="room">
-      <button id="hostBtn" type="button">Race a friend</button>
-      <input id="code" placeholder="Code" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Game code">
-      <button id="joinBtn" type="button">Join</button>
-    </span>
-    <span id="roomOn" class="room" hidden>
-      <span>Game code <b id="roomCode"></b></span>
-      <button id="copyBtn" type="button">Copy link</button>
-      <button id="leaveBtn" type="button">Leave</button>
-    </span>
-  </div>
-  <div class="players" id="players"></div>
-  <div class="swatches" id="colors" role="group" aria-label="Your color" hidden></div>
-  <div class="legend" id="legend" hidden></div>
-  <div class="status" id="status" hidden></div>
-  <div class="mapwrap">
-    <svg id="map" viewBox="0 0 960 470" role="img" aria-label="World map"></svg>
-    <div class="count" id="count" hidden aria-live="assertive"></div>
-    <div class="zoomctl">
-      <button id="zin" aria-label="Zoom in">+</button>
-      <button id="zout" aria-label="Zoom out">−</button>
-      <button id="zreset" aria-label="Reset zoom">⤢</button>
+    <aside class="panel" id="panel" aria-label="Countries found">
+      <div class="panelhead">
+        <div class="tabs" id="tabs" role="tablist"></div>
+        <button id="giveUp" type="button" hidden>Give up</button>
+      </div>
+      <div class="conts" id="conts" hidden></div>
+      <div class="list" id="list" role="tabpanel" aria-label="Countries" tabindex="0"></div>
+    </aside>
+    <div class="mapwrap">
+      <svg id="map" viewBox="0 0 960 470" role="img" aria-label="World map"></svg>
+      <div class="count" id="count" hidden aria-live="assertive"></div>
+      <div class="zoomctl">
+        <button id="zin" type="button" aria-label="Zoom in">+</button>
+        <button id="zout" type="button" aria-label="Zoom out">−</button>
+        <button id="zreset" type="button" aria-label="Reset zoom">⤢</button>
+      </div>
     </div>
-  </div>
-  <section class="continents" id="continents"></section>
+    <section class="sheet" id="sheet" aria-labelledby="sheetTitle">
+      <div class="card">
+        <h2 id="sheetTitle">Country Race</h2>
+        <p class="sub" id="sheetSub"></p>
+        <div class="result" id="result" hidden></div>
+        <div class="codebox" id="roomOn" hidden>
+          <span class="lbl">Game code</span><b id="roomCode"></b>
+          <button id="copyBtn" type="button">Copy link</button>
+        </div>
+        <div class="who" id="players" hidden></div>
+        <details class="setup" id="setup" open>
+          <summary>Color, name and time</summary>
+          <div class="fields">
+            <div class="field"><span class="lbl" id="colorLbl">Your color</span><div class="swatches" id="colors" role="group" aria-labelledby="colorLbl"></div></div>
+            <div class="row">
+              <label class="field" id="nameField"><span class="lbl">Your name</span><input type="text" id="nameInput" maxlength="14" placeholder="Optional" autocomplete="off" spellcheck="false"></label>
+              <label class="field"><span class="lbl">Time limit</span>
+                <select id="dur">
+                  <option value="600">10 min</option>
+                  <option value="900" selected>15 min</option>
+                  <option value="1200">20 min</option>
+                  <option value="0">No limit</option>
+                </select></label>
+            </div>
+          </div>
+        </details>
+        <div class="actions">
+          <button id="startBtn" type="button" class="go">Play solo</button>
+          <button id="viewBtn" type="button" hidden>View map</button>
+        </div>
+        <p class="note" id="readyNote" aria-live="polite" hidden></p>
+        <div class="join" id="roomSolo">
+          <button id="hostBtn" type="button">Race a friend</button>
+          <input type="text" id="code" placeholder="Code" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Game code">
+          <button id="joinBtn" type="button">Join</button>
+        </div>
+        <button id="leaveBtn" type="button" class="link" hidden>Leave game</button>
+        <p class="credit">Map data: Natural Earth</p>
+      </div>
+    </section>
+  </main>
 </div>
-<div id="toast"></div>
+<div id="toast" role="status"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js" integrity="sha384-Ukv1p/xTma6P4/2bY5KzWBw+ydSpXmhCMtyciIQVDJ1RmOxtCYNMF1uXT9T63H67" crossorigin="anonymous"></script>
@@ -192,13 +308,20 @@ const BYKEY = new Map(LIST.map(c => [c.key, c]));
 let me = "local", shared = false, room = null;
 let round = null, startedAt = 0, duration = 900, endedAt = null;
 const found = new Map();   // my own guesses: index -> {by, at}
-const players = new Map(); // uid -> {joinedAt, count, doneAt}; counts are public, guesses are not
+const players = new Map(); // uid -> {joinedAt, count, doneAt, got, color, name}
 let unsubs = [], myJoined = null, myDone = null, announced = false;
 // Lobby: both players press Ready; the host's page then starts the round for everyone.
 let ready = false, durAt = 0, startingFor = 0;
+// Who named each country first. The host's page decides (in the order guesses reach it) and tells the guest,
+// so both maps show the same owner. Until that arrives, each page uses the order it saw things in.
+let guestOwner = {}; const firstSeen = new Map();
+function ownerMap(){ return isHost ? (hostDocs.owner || (hostDocs.owner = {})) : guestOwner; }
+const cleanName = s => String(s ?? "").replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, 14);
+let myName = "";
+try { myName = cleanName(localStorage.getItem("country-race-name") || ""); } catch {}
 const COUNTDOWN = 3000;
 function present(){
-  const list = [{uid: me, ready, round: round || 0, dur: +$("dur").value, durAt, color: myColor}];
+  const list = [{uid: me, ready, round: round || 0, dur: +$("dur").value, durAt, color: myColor, name: myName}];
   if (!room?.peers) return list;
   // One entry per player; if a player has the page open twice, their most recently updated tab counts
   const byUid = new Map();
@@ -208,14 +331,14 @@ function present(){
     if (!uid || uid === me || typeof pr.round !== "number" && pr.round !== null) continue;
     const prev = byUid.get(uid);
     if (prev && prev.at >= (p.updatedAt || 0)) continue;
-    byUid.set(uid, {uid, ready: !!pr.ready, round: +pr.round || 0, dur: pr.dur, durAt: +pr.durAt || 0, color: PALETTE[pr.color] ? pr.color : null, at: p.updatedAt || 0});
+    byUid.set(uid, {uid, ready: !!pr.ready, round: +pr.round || 0, dur: pr.dur, durAt: +pr.durAt || 0, color: PALETTE[pr.color] ? pr.color : null, name: cleanName(pr.name), at: p.updatedAt || 0});
   }
   return list.concat([...byUid.values()]);
 }
 // Time limit: whoever changed it last wins, so both lobbies show the same setting.
 function syncDur(){
   let best = null; for (const p of present()) if (p.durAt && typeof p.dur === "number" && (!best || p.durAt > best.durAt)) best = p;
-  if (best && best.uid !== me && +$("dur").value !== best.dur && document.activeElement !== $("dur")) { $("dur").value = String(best.dur); durAt = best.durAt; }
+  if (best && best.uid !== me && [0, 600, 900, 1200].includes(best.dur) && +$("dur").value !== best.dur && document.activeElement !== $("dur")) { $("dur").value = String(best.dur); durAt = best.durAt; }
 }
 function maybeStart(){
   if (!shared || !room || !inLobby()) return;
@@ -230,7 +353,7 @@ function beginRound(nr){
   const dur = +$("dur").value, st = {round: nr, startedAt: Date.now() + COUNTDOWN, duration: dur, endedAt: null};
   if (shared) {
     if (!isHost) return;
-    hostGame = st; hostDocs = {round: nr, players: {}}; saveHost();
+    hostGame = st; hostDocs = {round: nr, players: {}, owner: {}}; saveHost();
     send({t: "start", round: nr, delay: COUNTDOWN, duration: dur});
   }
   applyState(st);
@@ -246,16 +369,21 @@ function timeUp(){ return round != null && !!duration && Date.now() >= startedAt
 function allDone(){ if (round == null) return false; if (timeUp() || endedAt || Date.now() - startedAt > 2 * 3600e3) return true; return players.size > 0 && [...players.entries()].every(([id, p]) => id === me ? !!myDone : !!p.doneAt); }
 // Player colors: each player picks one in the lobby; two players can't hold the same one.
 // Soft colors that read on white land and under dark labels
-const PALETTE = {sage: "#86c79f", sky: "#86b7e6", peach: "#f2b791", lilac: "#bcaae6", mint: "#84cfc6", butter: "#ead27f", rose: "#eba7c0", slate: "#a3b3c4"};
+const PALETTE = Object.assign(Object.create(null), {sage: "#86c79f", sky: "#86b7e6", peach: "#f2b791", lilac: "#bcaae6", mint: "#84cfc6", butter: "#ead27f", rose: "#eba7c0", slate: "#a3b3c4"});
 let myColor = "sage";
 try { const s = localStorage.getItem("country-race-color"); if (PALETTE[s]) myColor = s; } catch {}
 function colorKeyOf(uid){
   if (uid === me) return myColor;
   const c = present().find(p => p.uid === uid)?.color || players.get(uid)?.color;   // live choice first
+  // Never show the other player in my color: if they still hold it, show the one they are about to move to
+  if (c === myColor && me < uid) return Object.keys(PALETTE).find(k => k !== myColor);
   return PALETTE[c] ? c : (myColor === "sky" ? "sage" : "sky");
 }
 function colorOf(uid){ return PALETTE[colorKeyOf(uid)]; }
-function takenColors(){ return new Set(present().filter(p => p.uid !== me).map(p => colorKeyOf(p.uid))); }
+function takenColors(){
+  // The other player's color stays theirs even while they are disconnected
+  return new Set([...present().map(p => p.uid), ...players.keys()].filter(uid => uid !== me).map(colorKeyOf));
+}
 // If the other player already holds my color, the player with the later id moves to the first free one.
 function resolveColorClash(){
   for (const p of present()) {
@@ -265,11 +393,11 @@ function resolveColorClash(){
   }
 }
 function pickColor(k){
-  if (!PALETTE[k] || takenColors().has(k)) return;
+  if (!PALETTE[k] || !inLobby() || takenColors().has(k)) return;
   myColor = k; try { localStorage.setItem("country-race-color", k); } catch {}
   render(); if (shared) sync();
 }
-function nameOf(uid){ return uid === me ? "You" : "Friend"; }
+function nameOf(uid){ return uid === me ? "You" : present().find(p => p.uid === uid)?.name || players.get(uid)?.name || "Friend"; }
 function counting(){ return round != null && !endedAt && !myDone && Date.now() < startedAt; }
 function inLobby(){ return round == null || allDone(); }
 function isPlaying(){ if (round == null || endedAt || myDone || Date.now() < startedAt) return false; return !duration || Date.now() < startedAt + duration * 1000; }
@@ -277,11 +405,6 @@ function isOver(){ return round != null && !isPlaying() && !counting(); }
 
 // ---- map
 const svg = d3.select("#map");
-// Stripes of both players' colors for countries you both named
-const bothPat = svg.append("defs").append("pattern").attr("id", "bothPat").attr("patternUnits", "userSpaceOnUse")
-  .attr("width", 4).attr("height", 4).attr("patternTransform", "rotate(45)");
-const patA = bothPat.append("rect").attr("width", 2).attr("height", 4);
-const patB = bothPat.append("rect").attr("x", 2).attr("width", 2).attr("height", 4);
 const g = svg.append("g");
 let pins = new Map(), shapes = new Map(), labels = new Map(), zoom;
 // Labels sit at each country's visual center (the point deepest inside its main landmass)
@@ -389,125 +512,199 @@ async function drawMap(){
     g.attr("transform", e.transform); pins.forEach(p => p.attr("r", 2.6 / Math.sqrt(e.transform.k))); queueLayout(e.transform.k);
   });
   svg.call(zoom);
-  $("zin").onclick = () => svg.transition().duration(250).call(zoom.scaleBy, 1.8);
-  $("zout").onclick = () => svg.transition().duration(250).call(zoom.scaleBy, 1/1.8);
-  $("zreset").onclick = () => svg.transition().duration(250).call(zoom.transform, d3.zoomIdentity);
+  const ZOOM_MS = matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 250;
+  $("zin").onclick = () => svg.transition().duration(ZOOM_MS).call(zoom.scaleBy, 1.8);
+  $("zout").onclick = () => svg.transition().duration(ZOOM_MS).call(zoom.scaleBy, 1/1.8);
+  $("zreset").onclick = () => svg.transition().duration(ZOOM_MS).call(zoom.transform, d3.zoomIdentity);
 }
 
 // ---- render
+// Where the game is: home (no game), lobby (linked, no round yet), count (countdown), race,
+// wait (I'm finished, the other player isn't) or done (round over; results and rematch).
+function phase(){
+  if (round == null) return shared ? "lobby" : "home";
+  if (counting()) return "count";
+  if (isPlaying()) return "race";
+  return inLobby() ? "done" : "wait";
+}
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const pct = n => Math.round(n / TOTAL * 100) + "%";
+const CONT_SHORT = {"Africa": ["AF", "Africa"], "Europe": ["EU", "Europe"], "Asia": ["AS", "Asia"], "North America": ["NA", "N. America"], "South America": ["SA", "S. America"], "Oceania": ["OC", "Oceania"]};
+const wide = matchMedia("(min-width: 900px)");
+let tabRace = null, tabOver = null, sheetHidden = false, lastSheetPhase = null, listSig = "";
 function render(){
-  const over = isOver();
-  $("score").textContent = `${found.size}/${TOTAL}`;
-  // Head-to-head: color each country by who named it, live. Their countries get a name label only once the game is over.
+  const ph = phase(), over = isOver();
+  $("app").dataset.phase = ph;
+  resolveColorClash();
+  // Head-to-head: every country is one solid color, the color of whoever named it first.
+  // The other player's countries get a name label only once the game is over.
   const oppId = round != null ? playerOrder().find(id => id !== me && players.get(id)?.got) : null;
   const theirs = oppId ? new Set(players.get(oppId).got.map(Number)) : null;
-  const catOf = c => { const m = found.has(c.i), t = theirs.has(c.i); return m && t ? "both" : m ? "got" : t ? "them" : "none"; };
-  const tally = {got: 0, them: 0, both: 0, none: 0};
-  resolveColorClash();
   const myFill = colorOf(me), oppFill = oppId ? colorOf(oppId) : null;
-  patA.attr("fill", myFill); patB.attr("fill", oppFill || myFill);
-  const fillFor = {got: myFill, them: oppFill, both: "url(#bothPat)", none: "var(--none)"};
-  const cssFor = {got: myFill, them: oppFill, both: `repeating-linear-gradient(45deg, ${myFill} 0 4px, ${oppFill} 4px 8px)`, none: "var(--none)"};
+  const auth = shared ? ownerMap() : {};
+  const own = new Map(), tally = {me: 0, opp: 0, none: 0};
   for (const c of LIST) {
-    const f = found.get(c.i), cat = theirs ? catOf(c) : null, missed = !theirs && over && !f;
-    if (cat) tally[cat]++;
-    const fill = cat ? (cat === "none" ? (over ? fillFor.none : null) : fillFor[cat]) : (f ? myFill : null);
-    (shapes.get(c.i) || []).forEach(el => {
-      el.style("fill", fill).classed("missed", missed);
-      el.select("title").remove(); if (f || over) el.append("title").text(c.name);
+    const mine = found.has(c.i), th = !!theirs?.has(c.i);
+    let o = null;
+    if (mine || th) {
+      if (!firstSeen.has(c.i)) firstSeen.set(c.i, mine ? me : oppId);
+      const a = auth[c.i];
+      o = a === me || (a === oppId && oppId) ? a : firstSeen.get(c.i);
+      tally[o === me ? "me" : "opp"]++;
+    } else tally.none++;
+    own.set(c.i, o);
+    const missed = !theirs && over && !mine;
+    const fill = o ? (o === me ? myFill : oppFill) : (over && theirs ? "var(--none)" : null);
+    (shapes.get(c.i) || []).forEach(s => {
+      s.style("fill", fill).classed("missed", missed);
+      s.select("title").remove(); if (mine || over) s.append("title").text(c.name);
     });
-    const p = pins.get(c.i); if (p) p.attr("display", f || over || (cat && cat !== "none") ? "none" : null);
-    const l = labels.get(c.i); if (l) { l.on = !!(f || over); l.el.classed("missed", missed); }
+    const p = pins.get(c.i); if (p) p.attr("display", o || over ? "none" : null);
+    const l = labels.get(c.i); if (l) { l.on = !!(mine || over); l.el.classed("missed", missed); }
   }
   layoutLabels(curK);
-  // Legend for the reveal
-  const lg = $("legend"); lg.hidden = !theirs;
-  if (theirs) {
-    lg.textContent = "";
-    const keys = [["got", "You got"], ["them", `${nameOf(oppId)} got`], ["both", "Both got"]];
-    if (over) keys.push(["none", "Not got"]);
-    for (const [k, txt] of keys) {
-      const it = document.createElement("span"); it.className = "key";
-      const sw = document.createElement("span"); sw.className = "sw"; sw.style.background = cssFor[k];
-      const n = document.createElement("b"); n.textContent = tally[k];
-      it.append(sw, txt, n); lg.append(it);
-    }
-  }
-  // Color picker (lobby only); a color the other player holds is unavailable
-  const cp = $("colors"); cp.hidden = !inLobby(); cp.textContent = "";
-  if (inLobby()) {
-    const taken = takenColors();
-    for (const [k, v] of Object.entries(PALETTE)) {
-      const b = document.createElement("button"); b.type = "button"; b.className = "swatch" + (k === myColor ? " on" : "");
-      b.style.background = v; b.disabled = taken.has(k); b.setAttribute("aria-label", k + (k === myColor ? " (yours)" : taken.has(k) ? " (taken)" : ""));
-      b.setAttribute("aria-pressed", String(k === myColor)); b.onclick = () => pickColor(k);
-      cp.append(b);
-    }
-  }
-  // players
-  const pl = $("players"); pl.textContent = "";
-  if (shared && room && inLobby()) {
-    const ps = present();
-    for (const p of ps) {
-      const ch = document.createElement("span"); ch.className = "chip" + (p.ready ? " ready" : "");
-      const d = document.createElement("span"); d.className = "dot"; d.style.background = colorOf(p.uid);
-      const t = document.createElement("span"); t.className = "tag"; t.textContent = p.ready ? "Ready" : "Not ready";
-      ch.append(d, p.uid === me ? "You" : nameOf(p.uid));
-      if (round != null && (p.uid === me || players.has(p.uid))) { const c = document.createElement("span"); c.className = "cnt"; c.textContent = countOf(p.uid); ch.append(c); }
-      ch.append(t); pl.append(ch);
-    }
-    if (ps.length < 2) { const w = document.createElement("span"); w.className = "empty"; w.textContent = "Waiting for the other player to open the page"; pl.append(w); }
-    pushPresence();
-  } else {
-  const ids = playerOrder();
-  const top = Math.max(0, ...ids.map(countOf)), leaders = ids.filter(id => countOf(id) === top);
-  for (const uid of ids) {
-    const ch = document.createElement("span"); ch.className = "chip";
-    if (ids.length > 1 && top > 0 && leaders.length === 1 && leaders[0] === uid) ch.classList.add("lead");
-    const d = document.createElement("span"); d.className = "dot"; d.style.background = colorOf(uid);
-    const done = uid === me ? myDone : players.get(uid)?.doneAt;
-    const nm = shared ? (uid === me ? "You" : nameOf(uid)) : "You";
-    const cnt = document.createElement("span"); cnt.className = "cnt"; cnt.textContent = countOf(uid);
-    ch.append(d, nm, cnt);
-    if (done && !allDone()) { const t = document.createElement("span"); t.className = "tag"; t.textContent = "finished"; ch.append(t); }
-    pl.append(ch);
-  }
-  pushPresence();
-  }
-  // continents
-  const box = $("continents"); box.textContent = "";
-  for (const cont of Object.keys(DATA)) {
-    const cs = LIST.filter(c => c.cont === cont), got = cs.filter(c => found.has(c.i));
-    const card = document.createElement("div"); card.className = "cont";
-    const h = document.createElement("h2"); h.textContent = cont;
-    const s = document.createElement("span"); s.textContent = `${got.length} / ${cs.length}`; h.append(s);
-    const nm = document.createElement("div"); nm.className = "names";
-    const show = over ? cs : got;
-    if (!show.length) { const e = document.createElement("span"); e.className = "empty"; e.textContent = "None yet"; nm.append(e); }
-    for (const c of show) {
-      const f = found.get(c.i), n = document.createElement("span"); n.className = "n" + (f || theirs ? "" : " missed");
-      const d = document.createElement("span"); d.className = "dot";
-      d.style.background = theirs ? cssFor[catOf(c)] : f ? myFill : "var(--miss)";
-      n.append(d, c.name); nm.append(n);
-    }
-    card.append(h, nm); box.append(card);
-  }
+  const fillOf = o => o ? (o === me ? myFill : oppFill) : theirs ? "var(--none)" : "var(--miss)";
+  renderBoard();
+  renderList(over, oppId, theirs, own, fillOf, tally);
+  renderSheet(ph, tally);
   renderControls();
+  pushPresence();
+}
+// Scoreboard: one chip per player in that player's color, with count, share of the world and the lead.
+function renderBoard(){
+  const bd = $("board"), sh = $("share"); bd.textContent = "";
+  const ids = round != null ? playerOrder().sort((a, b) => (b === me) - (a === me)) : [];
+  bd.hidden = sh.hidden = !ids.length;
+  if (!ids.length) return;
+  const counts = ids.map(countOf), sorted = [...counts].sort((a, b) => b - a), gap = sorted.length > 1 ? sorted[0] - sorted[1] : 0;
+  ids.forEach((uid, k) => {
+    const n = counts[k], lead = gap > 0 && n === sorted[0], nm = uid === me ? "You" : nameOf(uid);
+    const ch = el("div", "pchip" + (lead ? " lead" : "")); ch.style.setProperty("--c", colorOf(uid)); ch.dataset.uid = uid;
+    ch.append(el("span", "pname", nm), el("span", "pcount", n), el("span", "ppct", pct(n)));
+    if (lead) { const ld = el("span", "plead", "+" + gap); ld.append(el("span", "w", " ahead")); ch.append(ld); }
+    const done = uid === me ? myDone : players.get(uid)?.doneAt;
+    if (done && !allDone()) ch.append(el("span", "ptag", "done"));
+    ch.setAttribute("role", "group");
+    ch.setAttribute("aria-label", `${nm}: ${n} of ${TOTAL} found, ${pct(n)} of the world${lead ? `, ahead by ${gap}` : ids.length > 1 && gap === 0 ? ", tied" : ""}`);
+    bd.append(ch);
+  });
+  // Share bar: my part grows from the left, the other player's from the right
+  const a = counts[0], b = ids.length > 1 ? counts[1] : 0, scale = Math.max(TOTAL, a + b);
+  $("shareMe").style.width = a / scale * 100 + "%"; $("shareMe").style.background = colorOf(ids[0]);
+  $("shareOpp").style.width = b / scale * 100 + "%"; $("shareOpp").style.background = ids.length > 1 ? colorOf(ids[1]) : "transparent";
+}
+// The found list. While racing: my countries, newest first or by continent.
+// When I'm finished: what nobody found, my list and the other player's list.
+function renderList(over, oppId, theirs, own, fillOf, tally){
+  const tabs = over
+    ? (theirs ? [["none", `Nobody ${tally.none}`], ["me", `You ${found.size}`], ["opp", `${nameOf(oppId)} ${theirs.size}`]]
+              : [["none", `Missed ${TOTAL - found.size}`], ["me", `Found ${found.size}`]])
+    : [["recent", "Newest"], ["cont", "By continent"]];
+  let tab = over ? tabOver : tabRace;
+  if (!tabs.some(t => t[0] === tab)) tab = over ? "none" : (wide.matches ? "cont" : "recent");
+  const sig = [tab, over, tabs.map(t => t[1]).join("/"), [...found.keys()].join(), [...own.values()].map(o => o ? (o === me ? 1 : 2) : 0).join(""), fillOf(me), fillOf(oppId || "-")].join("|");
+  if (sig === listSig) return; listSig = sig;
+  const tb = $("tabs"); tb.textContent = "";
+  for (const [k, txt] of tabs) {
+    const b = el("button", "tab", txt); b.type = "button"; b.setAttribute("role", "tab"); b.setAttribute("aria-selected", String(k === tab)); b.dataset.tab = k;
+    b.onclick = () => { if (over) tabOver = k; else tabRace = k; render(); };
+    tb.append(b);
+  }
+  const item = (c, cls) => { const n = el("span", "n" + (cls ? " " + cls : "")); const d = el("i", "dot"); d.style.background = fillOf(own.get(c.i)); n.append(d, c.name); return n; };
+  const strip = $("conts"), box = $("list"); strip.hidden = tab !== "recent"; strip.textContent = ""; box.textContent = "";
+  if (tab === "recent") {
+    for (const cont of Object.keys(DATA)) {
+      const cs = LIST.filter(c => c.cont === cont), cell = el("span", "cc"); cell.title = cont;
+      cell.append(el("span", "short", CONT_SHORT[cont][0]), el("span", "long", CONT_SHORT[cont][1]), el("b", null, `${cs.filter(c => found.has(c.i)).length}/${cs.length}`));
+      strip.append(cell);
+    }
+    const order = [...found.entries()].map(([i, f], k) => [i, f.at || 0, k]).sort((a, b) => b[1] - a[1] || b[2] - a[2]);
+    if (!order.length) { box.append(el("span", "empty", "Countries you name show up here.")); return; }
+    const names = el("div", "names");
+    order.forEach(([i, at], k) => names.append(item(LIST[i], k === 0 && Date.now() - at < 1500 ? "new" : "")));
+    box.append(names); box.scrollTop = 0;
+    return;
+  }
+  const pick = tab === "cont" || tab === "me" ? c => found.has(c.i) : tab === "opp" ? c => theirs.has(c.i) : c => !found.has(c.i) && !theirs?.has(c.i);
+  for (const cont of Object.keys(DATA)) {
+    const cs = LIST.filter(c => c.cont === cont), show = cs.filter(pick);
+    const grp = el("div", "grp"), h = el("h3", null, cont); h.append(el("span", null, `${show.length} / ${cs.length}`));
+    const names = el("div", "names");
+    if (!show.length) names.append(el("span", "empty", tab === "none" ? "All found" : "None yet"));
+    for (const c of show) names.append(item(c, tab === "none" ? "missed" : ""));
+    grp.append(h, names); box.append(grp);
+  }
+}
+// Lobby and results card
+function renderSheet(ph, tally){
+  const open = ph === "home" || ph === "lobby" || ph === "done";
+  if (ph !== "done") sheetHidden = false;
+  $("sheet").hidden = !open || sheetHidden; $("sheetBtn").hidden = !(ph === "done" && sheetHidden);
+  if (!open) { lastSheetPhase = ph; return; }
+  const ps = present(), versus = shared && room && ps.length > 1, opp = ps.find(p => p.uid !== me);
+  const ids = round != null ? playerOrder() : [], other = ids.find(id => id !== me), duel = ph === "done" && !!other;
+  if (ph !== lastSheetPhase) { lastSheetPhase = ph; $("setup").open = ph !== "done"; }
+  // headline
+  let title = "Country Race", sub = "Name every country in the world before the clock runs out. Play solo, or race a friend live.";
+  if (ph === "lobby") { title = "Race lobby"; sub = versus ? "Pick your colors, then both press Ready." : isHost ? "Send the code or the link to the other player." : "Connecting you to the game."; }
+  if (ph === "done") {
+    const a = found.size, b = other ? countOf(other) : 0;
+    if (duel) { title = a === b ? "It's a tie" : a > b ? "You win" : `${nameOf(other)} wins`; sub = a === b ? `${a} each` : `${Math.max(a, b)} to ${Math.min(a, b)}`; }
+    else { title = a === TOTAL ? "All 197 found" : "Round over"; sub = `You found ${a} of ${TOTAL}.`; }
+  }
+  $("sheetTitle").textContent = title; $("sheetSub").textContent = sub;
+  // results
+  const rs = $("result"); rs.hidden = ph !== "done"; rs.textContent = "";
+  if (ph === "done") {
+    for (const uid of (duel ? [me, other] : [me])) {
+      const n = countOf(uid), st = el("div", "rstat"); st.style.setProperty("--c", colorOf(uid)); st.dataset.uid = uid;
+      st.append(el("div", "who", uid === me ? "You" : nameOf(uid)), el("div", "big", n), el("div", "small", `${pct(n)} of the world`));
+      if (duel) st.append(el("div", "small", `First to ${uid === me ? tally.me : tally.opp}`));
+      rs.append(st);
+    }
+    const none = el("div", "rnone"), d = el("i", "dot"); d.style.background = duel ? "var(--none)" : "var(--miss)";
+    const left = duel ? tally.none : TOTAL - found.size;
+    none.append(d, left ? `${duel ? "Nobody found" : "Missed"} ${left} ${left === 1 ? "country" : "countries"}. The lists are next to the map.` : "Every country was found.");
+    rs.append(none);
+  }
+  // who is here, in which color
+  const pl = $("players"); pl.hidden = !shared; pl.textContent = "";
+  if (shared) {
+    for (const p of ps) {
+      const row = el("div", "prow" + (p.ready ? " ready" : "")), d = el("i", "dot"); d.style.background = colorOf(p.uid);
+      row.append(d, el("span", null, p.uid === me ? "You" : nameOf(p.uid)), el("span", "tag", p.ready ? (ph === "done" ? "Wants a rematch" : "Ready") : (ph === "done" ? "" : "Not ready")));
+      pl.append(row);
+    }
+    if (ps.length < 2) pl.append(el("span", "empty", ph === "done" ? "The other player isn't connected." : "Waiting for the other player to join."));
+  }
+  // color picker: a color the other player holds can't be picked, and shows who holds it
+  const cp = $("colors"), taken = takenColors(); cp.textContent = "";
+  for (const [k, v] of Object.entries(PALETTE)) {
+    const mine = k === myColor, held = taken.has(k), cell = el("span", "swcell");
+    const b = el("button", "swatch" + (mine ? " on" : "") + (held ? " taken" : "")); b.type = "button";
+    b.style.background = v; b.disabled = held; b.setAttribute("aria-label", k + (mine ? " (yours)" : held ? ` (taken by ${nameOf(opp?.uid)})` : ""));
+    b.setAttribute("aria-pressed", String(mine)); b.onclick = () => pickColor(k);
+    cell.append(b, el("span", "swcap", mine ? "You" : held ? nameOf(opp?.uid) : ""));
+    cp.append(cell);
+  }
+  $("nameField").hidden = !shared;
+  // buttons
+  const btn = $("startBtn"), guestAlone = shared && !isHost && !versus;   // only the host's page can start a round
+  btn.textContent = guestAlone ? "Ready" : !versus ? (round != null ? "Play again" : shared ? "Start solo" : "Play solo")
+    : ready ? (ph === "done" ? "Cancel rematch" : "Cancel") : (ph === "done" ? "Rematch" : "Ready");
+  btn.disabled = guestAlone; btn.classList.toggle("go", !(versus && ready));
+  const note = $("readyNote"), nt = !versus ? "" : ready && !opp.ready ? `Waiting for ${nameOf(opp.uid)}.` : !ready && opp.ready ? `${nameOf(opp.uid)} is ready.` : "";
+  note.textContent = nt; note.hidden = !nt;
+  $("viewBtn").hidden = ph !== "done";
+  $("roomSolo").hidden = shared; $("roomOn").hidden = $("leaveBtn").hidden = !shared;
 }
 function renderControls(){
-  const playing = isPlaying(), inp = $("guess"), lobby = inLobby(), btn = $("startBtn");
-  const versus = shared && room && present().length > 1;
+  const playing = isPlaying(), inp = $("guess"), lobby = inLobby();
   inp.disabled = !playing; if (!playing) { clearTimeout(holdTimer); setHint(); }
-  inp.placeholder = playing ? "Type a country" : counting() ? "Get ready" : !lobby ? "Waiting for the other player to finish" : round == null ? "Ready up to play" : "Game over";
-  $("giveUp").hidden = !playing;
-  btn.hidden = !lobby;
-  const guestAlone = shared && !isHost && !versus;   // only the host's page can start a round
-  btn.textContent = guestAlone ? "Ready" : !versus ? (round == null ? "Start solo" : "Play again") : ready ? "Cancel" : "Ready";
-  btn.disabled = guestAlone;
-  $("roomSolo").hidden = shared || !lobby;
-  btn.classList.toggle("go", !(versus && ready));
-  $("dur").hidden = !lobby;
-  if (playing && document.activeElement !== inp && !matchMedia("(pointer:coarse)").matches) inp.focus();
+  inp.placeholder = playing ? "Type a country" : counting() ? "Get ready" : !lobby ? "Waiting for the other player to finish" : round == null ? "Ready up to play" : "Round over";
+  const gu = $("giveUp"); gu.hidden = !playing; if (!playing) disarmGiveUp();
+  const act = document.activeElement;   // take focus only when nothing else has it
+  if (playing && (!act || act === document.body) && !matchMedia("(pointer:coarse)").matches) inp.focus();
 }
 let lastPlaying = null;
 function tick(){
@@ -520,19 +717,31 @@ function tick(){
     if (!duration) { const el = Math.floor(((endedAt || Date.now()) - startedAt) / 1000); txt = `${Math.floor(el/60)}:${String(el%60).padStart(2,"0")}`; }
     else { const left = Math.min(duration, Math.max(0, Math.ceil((startedAt + duration*1000 - (endedAt || Date.now())) / 1000))); txt = `${Math.floor(left/60)}:${String(left%60).padStart(2,"0")}`; }
   }
-  if (round == null || (inLobby() && !counting())) { const d = +$("dur").value; if (round == null) txt = d ? `${d/60}:00` : "0:00"; }
+  if (round == null) { const d = +$("dur").value; txt = d ? `${d/60}:00` : "0:00"; }
   $("clock").textContent = txt;
   const cd = $("count"), cnt = counting();
-  cd.hidden = !cnt; if (cnt) cd.textContent = Math.ceil((startedAt - Date.now()) / 1000);
-  const p = isPlaying(); if (p !== lastPlaying) { const was = lastPlaying; lastPlaying = p; render(); if (was === true && !p && players.size < 2) toast(found.size === TOTAL ? "All 197 found" : `Game over: ${found.size} of ${TOTAL}`); }
-  if (!announced && players.size > 1 && allDone()) { announced = true; announceWinner(); render(); if (shared) sync(); }
+  cd.hidden = !cnt; if (cnt) { const n = String(Math.ceil((startedAt - Date.now()) / 1000)); if (cd.textContent !== n) cd.textContent = n; }
+  const p = phase(); if (p !== lastPlaying) { lastPlaying = p; render(); }
+  if (!announced && players.size > 1 && allDone()) { announced = true; render(); if (shared) sync(); }
 }
-function announceWinner(){
-  const ranked = playerOrder().map(id => [id, countOf(id)]).sort((a, b) => b[1] - a[1]);
-  const [[w, wc], [, rc]] = ranked;
-  showResult(wc === rc ? `Tie at ${wc}` : `${w === me ? "You win" : nameOf(w) + " wins"}, ${wc} to ${rc}`);
+$("viewBtn").onclick = () => { sheetHidden = true; render(); };
+$("sheetBtn").onclick = () => { sheetHidden = false; render(); };
+// Give up takes two taps, so a stray tap can't end your game
+let giveUpT = null;
+function disarmGiveUp(){ clearTimeout(giveUpT); const b = $("giveUp"); b.classList.remove("sure"); b.textContent = "Give up"; }
+$("giveUp").onclick = () => {
+  const b = $("giveUp");
+  if (!b.classList.contains("sure")) { b.classList.add("sure"); b.textContent = "Tap again to give up"; giveUpT = setTimeout(disarmGiveUp, 3000); return; }
+  disarmGiveUp(); finish();
+};
+// Keep the whole game inside the visible area when a phone keyboard opens
+function fitViewport(){
+  const vv = window.visualViewport; if (!vv || Math.abs(vv.scale - 1) > 0.01) return;
+  document.documentElement.style.setProperty("--vh", vv.height + "px");
+  $("app").style.transform = vv.offsetTop ? `translateY(${vv.offsetTop}px)` : "";
 }
-function showResult(msg){ toastEl.textContent = msg; toastEl.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(()=>toastEl.classList.remove("on"), 6000); }
+if (window.visualViewport) { visualViewport.addEventListener("resize", fitViewport); visualViewport.addEventListener("scroll", fitViewport); fitViewport(); }
+wide.addEventListener?.("change", () => { listSig = ""; render(); });
 
 // ---- actions
 // Typing rules. The one promise: what you type is never wiped out while you might still be typing.
@@ -582,16 +791,15 @@ function sync(){
   const r = round, obj = {};
   found.forEach((v, k) => obj[k] = v.at);
   store.set(`country-race-found-${code}-${r}`, obj);
-  const doc = {joinedAt: myJoined || Date.now(), count: found.size, doneAt: myDone || null, got: myGotList(), color: myColor};
+  const doc = {joinedAt: myJoined || Date.now(), count: found.size, doneAt: myDone || null, got: myGotList(), color: myColor, name: myName};
   if (isHost) hostPutPlayer(r, me, doc);
   send({t: "player", round: r, uid: me, doc});
 }
-$("dur").addEventListener("change", () => { durAt = Date.now(); pushPresence(); tick(); });
+$("dur").addEventListener("change", () => { durAt = Math.max(Date.now(), ...present().map(p => +p.durAt || 0)) + 1; pushPresence(); tick(); });
 $("startBtn").onclick = () => {
   if (shared && room && present().length > 1) { ready = !ready; render(); maybeStart(); return; }
   beginRound(Math.max(...present().map(p => p.round)) + 1);
 };
-$("giveUp").onclick = finish;
 // Give up (or finding all 197) ends only your own game; the other player keeps going.
 function finish(){
   myDone = Date.now();
@@ -604,9 +812,11 @@ function applyState(d){
   // Keep the start time this page already has for the round (set from the live countdown on its own clock)
   startedAt = (newRound === round && startedAt) ? startedAt : (d?.startedAt || 0);
   duration = d?.duration ?? 900; endedAt = d?.endedAt || null;
+  const wait = startedAt - Date.now(); if (wait > 0 && wait < 10000) setTimeout(tick, wait + 5);   // open the input the moment the countdown ends
   if (newRound !== round) {
     round = newRound; found.clear(); players.clear(); unsubs.forEach(u => u()); unsubs = [];
     myJoined = null; myDone = null; announced = false; ready = false; joinedRound = null;
+    guestOwner = {}; firstSeen.clear(); sheetHidden = false; tabRace = tabOver = null;
     if (shared && round != null) { enterRound(round); setTimeout(() => onRoomPeers(room.peers()), 0); }
     else if (round != null) players.set(me, {joinedAt: Date.now(), count: 0, doneAt: null});
   }
@@ -626,9 +836,9 @@ function ingestPlayers(r, docs){
   if (r !== round || !docs || typeof docs !== "object") return;
   for (const [uid, d] of Object.entries(docs)) {
     if (!d || typeof d !== "object") continue;
-    const got = Array.isArray(d.got) ? d.got.map(Number).filter(i => LIST[i]).slice(0, TOTAL) : null;
+    const got = Array.isArray(d.got) ? d.got.slice(0, TOTAL).map(Number).filter(i => LIST[i]) : null;
     if (uid === me && got) for (const i of got) if (!found.has(i)) found.set(i, {by: me, at: 0});
-    mergePlayer(uid, {joinedAt: +d.joinedAt || 0, count: +d.count || 0, doneAt: +d.doneAt || null, got, color: d.color});
+    mergePlayer(uid, {joinedAt: +d.joinedAt || 0, count: +d.count || 0, doneAt: +d.doneAt || null, got, color: d.color, name: d.name});
   }
   const mineP = players.get(me);
   if (mineP) { myJoined = myJoined || mineP.joinedAt; myDone = myDone || mineP.doneAt || null; }
@@ -641,7 +851,7 @@ function mergePlayer(uid, p){
   const old = players.get(uid) || {};
   players.set(uid, {joinedAt: old.joinedAt || p.joinedAt || Date.now(), count: Math.max(old.count || 0, p.count || 0), doneAt: old.doneAt || p.doneAt || null,
     got: Array.isArray(p.got) && (!old.got || p.got.length >= old.got.length) ? p.got : (old.got || null),
-    color: PALETTE[p.color] ? p.color : (old.color || null)});
+    color: PALETTE[p.color] ? p.color : (old.color || null), name: cleanName(p.name) || old.name || ""});
 }
 // Each player's countries are shared live so both maps color in as you go.
 function myGotList(){ return round != null ? [...found.keys()] : null; }
@@ -649,7 +859,7 @@ function myGotList(){ return round != null ? [...found.keys()] : null; }
 let lastPresence = "";
 function pushPresence(){
   if (!room || !shared) return;
-  const pr = {uid: me, round, count: found.size, done: myDone || null, joinedAt: myJoined, ready, dur: +$("dur").value, durAt, got: myGotList(), color: myColor};
+  const pr = {uid: me, round, count: found.size, done: myDone || null, joinedAt: myJoined, ready, dur: +$("dur").value, durAt, got: myGotList(), color: myColor, name: myName};
   const s = JSON.stringify(pr); if (s === lastPresence) return; lastPresence = s;
   room.presence(pr).catch(() => {});
 }
@@ -661,7 +871,7 @@ function onRoomPeers(peers){
     if (!uid || uid === me || typeof pr.round !== "number") continue;
     if (round == null || pr.round > round) newer = true;
     if (pr.round !== round) continue;
-    mergePlayer(uid, {joinedAt: pr.joinedAt, count: +pr.count || 0, doneAt: pr.done || null, got: Array.isArray(pr.got) ? pr.got.slice(0, TOTAL).map(Number) : null, color: pr.color}); changed = true;
+    mergePlayer(uid, {joinedAt: pr.joinedAt, count: +pr.count || 0, doneAt: pr.done || null, got: Array.isArray(pr.got) ? pr.got.slice(0, TOTAL).map(Number).filter(i => LIST[i]) : null, color: pr.color, name: pr.name}); changed = true;
   }
   if (newer && !isHost) send({t: "want"});
   syncDur();
@@ -681,9 +891,19 @@ const hostKey = c => "country-race-host-" + c;
 const cleanCode = s => String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
 function newCode(){ const a = crypto.getRandomValues(new Uint8Array(5)); return [...a].map(x => CODE_CHARS[x % CODE_CHARS.length]).join(""); }
 function saveHost(){ if (isHost) store.set(hostKey(code), {game: hostGame, docs: hostDocs}); }
-function hostPutPlayer(r, uid, doc){ if (hostDocs.round !== r) return; hostDocs.players[uid] = doc; saveHost(); }
+function hostPutPlayer(r, uid, doc){
+  if (hostDocs.round !== r || !doc || typeof doc !== "object") return;
+  // Keep only the known fields of a record that came from the other browser
+  const got = Array.isArray(doc.got) ? doc.got.slice(0, TOTAL).map(Number).filter(i => Number.isInteger(i) && LIST[i]) : null;
+  hostDocs.players[uid] = {joinedAt: +doc.joinedAt || Date.now(), count: Math.min(TOTAL, Math.max(0, +doc.count || 0)), doneAt: +doc.doneAt || null, got, color: PALETTE[doc.color] ? doc.color : null, name: cleanName(doc.name)};
+  // First to reach the host owns the country's color
+  const own = ownerMap(); let changed = false;
+  for (const i of got || []) if (own[i] == null) { own[i] = uid; changed = true; }
+  saveHost(); if (changed) send({t: "own", round: r, owner: own});
+}
+function setOwner(o){ guestOwner = o && typeof o === "object" ? o : {}; }
 function send(m){ if (conn?.open) try { conn.send(m); } catch {} }
-function sendState(){ send({t: "state", game: hostGame, now: Date.now(), round: hostDocs.round, players: hostDocs.players}); }
+function sendState(){ send({t: "state", game: hostGame, now: Date.now(), round: hostDocs.round, players: hostDocs.players, owner: ownerMap()}); }
 
 function onMessage(m){
   lastHeard = Date.now();
@@ -699,6 +919,7 @@ function onMessage(m){
       else if (typeof m.uid === "string" && m.uid !== me) ingestPlayers(m.round, {[m.uid]: m.doc});
       break;
     case "want": if (isHost) sendState(); break;
+    case "own": if (!isHost && round != null && m.round === round) { setOwner(m.owner); render(); } break;
     case "start":
       // The start signal carries a countdown length, not a clock time, so both screens count down together
       if (isHost || typeof m.round !== "number" || m.round <= (round || 0)) break;
@@ -710,7 +931,7 @@ function onMessage(m){
       const g = m.game && typeof m.game.round === "number" ? {...m.game} : null, skew = Date.now() - (+m.now || Date.now());
       if (g) { g.startedAt = (+g.startedAt || 0) + skew; g.endedAt = g.endedAt ? g.endedAt + skew : null; }
       if ((g?.round ?? null) !== round || (g && (g.endedAt || null) !== endedAt)) applyState(g);
-      if (g && m.round === round) ingestPlayers(round, m.players);
+      if (g && m.round === round) { setOwner(m.owner); ingestPlayers(round, m.players); }
       break;
     }
     case "full": full = true; setStatus("This game already has two players."); try { conn?.close(); } catch {} break;
@@ -761,7 +982,7 @@ function dial(){
   if (full || conn?.open || !peer?.open || Date.now() - dialAt < 6000) return;
   dialAt = Date.now();
   const c = peer.connect(ID_PREFIX + code, {reliable: true});
-  c.on("open", () => { attach(c, null); c.send({t: "hello", uid: me}); render(); });
+  c.on("open", () => { attach(c, null); c.send({t: "hello", uid: me}); sync(); render(); });   // sync: anything found while the link was down
   c.on("data", m => { if (c === conn) onMessage(m); });
 }
 // Every 2 seconds: keep the link alive, notice a silent drop, and reconnect what broke.
@@ -788,6 +1009,8 @@ function setupRoom(){
     try { await navigator.clipboard.writeText(url); toast("Link copied"); } catch { prompt("Send this link to the other player", url); }
   };
   $("leaveBtn").onclick = () => { location.href = location.pathname; };
+  $("nameInput").value = myName;
+  $("nameInput").addEventListener("input", e => { myName = cleanName(e.target.value); try { localStorage.setItem("country-race-name", myName); } catch {} pushPresence(); if (shared) sync(); });
   $("roomOn").hidden = !shared; $("roomSolo").hidden = shared;
   if (shared) $("roomCode").textContent = code;
 }
@@ -814,5 +1037,3 @@ async function boot(){
 }
 boot();
 </script>
-
-</body></html>

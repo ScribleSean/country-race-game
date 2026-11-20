@@ -1,6 +1,6 @@
 # Country Race
 
-A live two-player race to name every country in the world, inspired by country quizzes. Both players type at the same time. Each country you name fills in on the map in your color, and the other player's countries fill in on your map as they go. When time runs out, the map shows who got what.
+A live two-player race to name every country in the world, inspired by country quizzes. Both players type at the same time. Each player has their own color. A country fills in on both maps in the color of whoever named it first. A scoreboard shows each player's count, their share of the world and who is ahead, and your own list of countries stays on screen next to the input while you type.
 
 Play: https://scriblesean.github.io/country-race-game/
 
@@ -8,17 +8,18 @@ Play: https://scriblesean.github.io/country-race-game/
 
 1. Open the page and press **Race a friend**. You get a short game code.
 2. Press **Copy link** and send it to the other player, or tell them the code to type into **Join**.
-3. Each player picks a color, sets the time limit, and presses **Ready**. The game starts after a 3-second countdown.
+3. Each player picks a color (two players can't hold the same one), sets the time limit, and presses **Ready**. The game starts after a 3-second countdown.
 4. Type country names. A name counts as soon as it is complete. If it is also the start of a longer name (for example "Niger" and "Nigeria"), it counts after a short pause or when you press Enter.
-5. Press **Give up** to stop early. The game ends when time runs out or both players are done.
+5. Press **Give up** twice to stop early. The game ends when time runs out or both players are done.
+6. The results show the winner, both lists and the countries nobody found. Press **Rematch** to play again with the same colors; the next round starts when both players have pressed it.
 
-You can also play alone: open the page and press **Start solo**.
+You can also play alone: open the page and press **Play solo**.
 
 If a player reloads the page or loses the connection, opening the same link again rejoins the same game.
 
 ## How it works
 
-The page is static and runs in the browser. The two browsers connect directly with WebRTC through [PeerJS](https://peerjs.com/). PeerJS's public server is used to find the other browser, and PeerJS's public relay carries the game when the two networks can't connect directly. The host's browser keeps the game state. Your color, an anonymous player id, and your guesses for the current game are saved in your browser's local storage. There are no accounts and no analytics.
+The page is static and runs in the browser. The two browsers connect directly with WebRTC through [PeerJS](https://peerjs.com/). PeerJS's public server is used to find the other browser, and PeerJS's public relay carries the game when the two networks can't connect directly. The host's browser keeps the game state. Your color, the name you type (optional, shown to the other player), an anonymous player id, and your guesses for the current game are saved in your browser's local storage. There are no accounts and no analytics.
 
 ## Map data
 
