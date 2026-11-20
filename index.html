@@ -11,10 +11,10 @@
    One calm light look on purpose (white, soft gray, pale blue), the same in every viewer theme. */
 :root{
   color-scheme:light;
-  --bg:#f6f8f9; --panel:#ffffff; --fg:#24323a; --ink:#1c2a31; --muted:#5f6f78; --line:#e2e8eb;
-  --ocean:#dceaf4; --land:#ffffff; --border:#cbd5db; --pin:#b4c0c7;
-  --accent:#3f7fc8; --goodline:#5aae7b; --good:#2f7a4c;
-  --miss:#b04a58; --missland:#f5dfe2; --none:#d5dce0;
+  --bg:#f6f8f9; --panel:#ffffff; --fg:#1c2a31; --ink:#101820; --muted:#55646d; --line:#dbe2e6;
+  --ocean:#d3e4f1; --land:#f1f3f5; --border:#7b8a94; --pin:#8d9ba3;
+  --accent:#1f63c4; --goodline:#2f8f5b; --good:#1f6b43;
+  --miss:#a8323f; --missland:#f3c9cf; --none:#b4bdc4;
   --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
   --body:Inter,ui-sans-serif,system-ui,sans-serif;
 }
@@ -25,27 +25,29 @@ body{background:var(--bg);color:var(--fg);font:14px/1.35 var(--body);-webkit-tex
 .app{position:fixed;top:0;left:0;right:0;height:var(--vh,100dvh);max-width:1500px;margin:0 auto;display:flex;flex-direction:column;gap:8px;
   padding:calc(8px + env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
 button,select,input{font-family:var(--body)}
-button,select{flex:none;font-weight:600;font-size:14px;border-radius:10px;padding:10px 14px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer;white-space:nowrap}
+button,select{flex:none;min-height:40px;font-weight:600;font-size:14px;border-radius:10px;padding:8px 14px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer;white-space:nowrap}
 button.go{background:var(--accent);border-color:var(--accent);color:#fff}
 button:hover:not(:disabled){filter:brightness(.97)}
 button:disabled{opacity:.5;cursor:not-allowed}
-button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button:focus-visible,select:focus-visible,input:focus-visible,.list:focus-visible,summary:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.sw{width:14px;height:14px;border-radius:4px;flex:none;display:inline-block;box-shadow:inset 0 0 0 1px rgba(16,24,32,.35)}
 button.link{border:0;background:none;padding:4px;color:var(--muted);font-weight:500;text-decoration:underline;align-self:center}
-.lbl{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.lbl{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
 .dot{width:10px;height:10px;border-radius:50%;flex:none;display:inline-block}
 
 /* top: title, scoreboard, clock */
 .top{display:flex;align-items:center;gap:10px;min-height:44px;flex:none}
 h1{font:800 22px var(--display);margin:0;letter-spacing:-.01em;white-space:nowrap}
 .board{display:flex;gap:8px;flex:1;min-width:0}
-.pchip{display:flex;align-items:baseline;gap:6px;min-width:0;padding:5px 12px;border-radius:12px;background:var(--c);color:var(--ink);font-weight:600;box-shadow:inset 0 0 0 1px rgba(28,42,49,.08)}
-.pchip.lead{box-shadow:inset 0 0 0 2px rgba(28,42,49,.6)}
+.pchip{display:flex;align-items:baseline;gap:6px;min-width:0;padding:5px 12px;border-radius:12px;background:var(--c);color:var(--t);font-weight:700;border:3px solid var(--c)}
+.pchip.lead{border-color:var(--ink);box-shadow:0 0 0 2px var(--panel) inset}
 .pname{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .pcount{font:800 22px/1 var(--display);font-variant-numeric:tabular-nums}
-.ppct{font-size:12px;font-variant-numeric:tabular-nums;opacity:.85}
-.plead,.ptag{font-size:11px;font-weight:700;background:rgba(255,255,255,.65);padding:1px 7px;border-radius:999px;white-space:nowrap;align-self:center}
+.ppct{font-size:13px;font-variant-numeric:tabular-nums}
+.plead,.ptag{font-size:12px;font-weight:700;background:#fff;color:var(--ink);padding:1px 7px;border-radius:999px;white-space:nowrap;align-self:center}
 .clock{font:800 24px/1 var(--display);font-variant-numeric:tabular-nums;margin-left:auto;flex:none}
-.share{height:6px;border-radius:3px;background:var(--line);position:relative;overflow:hidden;flex:none}
+.share{height:8px;border-radius:3px;background:var(--line);position:relative;overflow:hidden;flex:none}
 .share i{position:absolute;top:0;bottom:0;width:0;transition:width .3s}
 #shareMe{left:0} #shareOpp{right:0}
 .status{color:var(--muted);font-size:13px;flex:none}
@@ -66,20 +68,40 @@ h1{font:800 22px var(--display);margin:0;letter-spacing:-.01em;white-space:nowra
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}
 .panelhead{display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid var(--line);flex:none}
 .tabs{display:flex;gap:4px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
-.tab{padding:5px 10px;font-size:12px;border-radius:999px;border-color:transparent;background:none;color:var(--muted)}
-.tab[aria-selected="true"]{background:var(--bg);border-color:var(--line);color:var(--fg)}
-#giveUp{padding:5px 10px;font-size:12px;color:var(--muted)}
+.tab{padding:5px 12px;font-size:13px;border-radius:999px;border-color:transparent;background:none;color:var(--muted)}
+.tab[aria-selected="true"],.tab[aria-pressed="true"]{background:var(--fg);border-color:var(--fg);color:#fff}
+.tab b{margin-left:5px;font-variant-numeric:tabular-nums}
+#giveUp{padding:5px 12px;font-size:13px;color:var(--muted)}
+/* review of a finished round */
+.review{display:flex;flex-direction:column;gap:6px;padding:8px;border-bottom:1px solid var(--line);flex:none}
+.rvtop{display:flex;align-items:center;gap:8px;min-height:40px}
+.review p{margin:0;font:700 15px var(--display);flex:1;min-width:0}
+.app[data-phase="done"] .panelhead,.app[data-phase="wait"] .panelhead{display:none}
+.rvrow{display:flex;gap:6px}
+.rvrow input{flex:1 1 0;min-width:0;min-height:40px;font-size:16px;padding:6px 10px;border-radius:10px;border:1px solid var(--border);background:var(--panel);color:var(--fg)}
+.rvrow select{flex:0 1 46%;min-width:0;font-size:14px;padding:6px 8px}
+.filters{display:flex;flex-wrap:wrap;gap:4px;padding:2px}
+.filters .tab{padding:5px 10px;border-color:var(--line)}
+.rv{display:flex;align-items:center;gap:8px;min-height:40px;padding:4px 8px;border-radius:8px;cursor:pointer;font-size:14px}
+.rv:hover{background:var(--bg)}
+.rv[aria-selected="true"]{background:var(--fg);color:#fff}
+.rv[aria-selected="true"] .st{color:#fff}
+.rv .nm{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rv .st{margin-left:auto;color:var(--muted);font-size:13px;white-space:nowrap}
+.rv .sw{width:16px;height:16px}
+.mkdot{width:10px;height:10px;border-radius:50%;flex:none;border:2px solid currentColor;opacity:.7}
 #giveUp.sure{color:var(--miss);border-color:var(--miss)}
-.conts{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;padding:6px 8px 0;font-size:11px;text-align:center;flex:none}
+.conts{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;padding:6px 8px 0;font-size:12px;text-align:center;flex:none}
 .cc{background:var(--bg);border-radius:6px;padding:3px 2px;color:var(--muted);white-space:nowrap;overflow:hidden}
-.cc b{display:block;color:var(--fg);font-variant-numeric:tabular-nums;font-size:12px}
+.cc b{display:block;color:var(--fg);font-variant-numeric:tabular-nums;font-size:13px}
 .cc .long{display:none}
 .list{flex:1;min-height:0;overflow-y:auto;padding:8px 10px;overscroll-behavior:contain}
-.names{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:13px}
+.names{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:14px}
+.dot{box-shadow:inset 0 0 0 1px rgba(16,24,32,.35)}
 .names .n{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
 .names .n.missed{color:var(--miss)}
 .names .n.new{animation:pop .9s ease-out}
-@keyframes pop{from{background:#e3f3e9;box-shadow:0 0 0 4px #e3f3e9}to{background:transparent;box-shadow:0 0 0 4px transparent}}
+@keyframes pop{from{background:#cfeedd;box-shadow:0 0 0 4px #cfeedd}to{background:transparent;box-shadow:0 0 0 4px transparent}}
 .grp{padding:6px 0 8px;border-top:1px solid var(--line)}
 .grp:first-child{border-top:0;padding-top:0}
 .grp h3{font:700 13px var(--display);margin:0 0 5px;display:flex;justify-content:space-between;gap:8px}
@@ -90,28 +112,28 @@ h1{font:800 22px var(--display);margin:0;letter-spacing:-.01em;white-space:nowra
 .mapwrap{position:relative;background:var(--ocean);border-radius:12px;overflow:hidden;border:1px solid var(--line);touch-action:none;min-height:0;
   height:min(49vw,calc(var(--vh,100dvh) * .3))}
 #map{display:block;width:100%;height:100%;cursor:grab}
-#map .land{fill:var(--land);stroke:var(--border);stroke-width:.6;vector-effect:non-scaling-stroke;transition:fill .25s}
-#map .land.other{fill:#f1f4f6}
-#map .land.missed{fill:var(--missland)}
+#map .land{fill:var(--land);stroke:var(--border);stroke-width:.7;vector-effect:non-scaling-stroke;transition:fill .25s}
+#map .land.other{fill:#e4e8eb}
+#map .land.on{stroke:#fff;stroke-width:.9}
+#map .land.sel{stroke:var(--ink);stroke-width:3}
+.app[data-phase="done"] #map .land:not(.other),.app[data-phase="wait"] #map .land:not(.other),.app[data-phase="done"] #map .mk,.app[data-phase="wait"] #map .mk{cursor:pointer}
 #map .pin{fill:var(--pin);stroke:var(--panel);vector-effect:non-scaling-stroke;stroke-width:1}
-/* small places: a ring until someone names it, then one solid player color */
-#map .mk{fill:rgba(255,255,255,.55);stroke:#6f7f88;stroke-width:1.3;vector-effect:non-scaling-stroke;transition:fill .25s}
-#map .mk.on{stroke:rgba(28,42,49,.6);stroke-width:1}
-#map .mk.missed{fill:var(--missland);stroke:var(--miss);stroke-width:2.2}
-.smallbtn{position:absolute;left:8px;top:8px;display:inline-flex;align-items:center;gap:6px;padding:5px 10px;font-size:12px;color:var(--fg);background:color-mix(in srgb,var(--panel) 88%,transparent);border-radius:999px;z-index:2}
-.ring{width:10px;height:10px;border-radius:50%;flex:none;display:inline-block;border:2px solid #6f7f88}
-.ring.miss{border-color:var(--miss)}
-.smallpop{position:absolute;left:8px;top:42px;z-index:2;max-width:calc(100% - 16px);max-height:calc(100% - 50px);overflow-y:auto;display:flex;flex-wrap:wrap;gap:4px;padding:8px;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 6px 20px rgba(36,50,58,.1)}
-.smallpop .lbl{flex:1 0 100%}
-.smallpop button{padding:5px 9px;font-size:12px;border-radius:999px;background:var(--bg)}
-.smallpop button b{font-variant-numeric:tabular-nums;margin-left:3px}
-.smallpop button.clear{color:var(--muted)}
-.names .n.sm .dot{background:transparent!important;box-shadow:inset 0 0 0 2px var(--miss)}
-#map .mlabel{font-family:var(--body);font-weight:700;fill:var(--fg);stroke:var(--panel);paint-order:stroke;stroke-linejoin:round;pointer-events:none}
+/* small places: a white disc until someone names it, then the same solid color the land would get */
+#map .mk{fill:#fff;stroke:#3d4b54;stroke-width:1.6;vector-effect:non-scaling-stroke;transition:fill .25s}
+#map .mk.on{stroke:#fff;stroke-width:1.8;filter:drop-shadow(0 0 .6px var(--ink))}
+#map .mk.sel{stroke:var(--ink);stroke-width:3.5}
+.maptog{position:absolute;left:8px;top:8px;display:flex;gap:4px;z-index:2}
+.maptog button{padding:4px 12px;font-size:13px;border-radius:999px;background:var(--panel);color:var(--muted);border-color:var(--border)}
+.maptog button[aria-pressed="true"]{background:var(--fg);border-color:var(--fg);color:#fff}
+#togMore{display:none;font-size:14px;font-weight:700}
+.legend{position:absolute;left:8px;bottom:8px;display:flex;gap:10px;padding:5px 10px;border-radius:999px;background:color-mix(in srgb,var(--panel) 92%,transparent);font-size:12px;font-weight:600;pointer-events:none}
+.legend .key{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+#map .mlabel{font-family:var(--body);font-weight:700;fill:var(--ink);stroke:#fff;paint-order:stroke;stroke-linejoin:round;pointer-events:none}
 #map .mlabel.missed{fill:var(--miss)}
+#map .mlabel.sel{font-weight:800}
 .count{position:absolute;inset:0;display:grid;place-items:center;font:800 clamp(56px,14vw,160px) var(--display);color:var(--fg);background:color-mix(in srgb,var(--ocean) 55%,transparent);pointer-events:none}
 .zoomctl{position:absolute;right:8px;bottom:8px;display:flex;gap:4px;z-index:3}
-.zoomctl button{width:32px;height:32px;padding:0;font-size:16px}
+.zoomctl button{width:40px;height:40px;padding:0;font-size:18px}
 
 /* lobby and results card */
 .sheet{position:absolute;inset:0;z-index:5;display:flex;overflow-y:auto;padding:8px;border-radius:12px;background:color-mix(in srgb,var(--bg) 80%,transparent);overscroll-behavior:contain}
@@ -120,17 +142,17 @@ h1{font:800 22px var(--display);margin:0;letter-spacing:-.01em;white-space:nowra
 .sub{color:var(--muted);margin:-6px 0 0}
 .result{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .rstat:first-child:nth-last-child(2){grid-column:1/-1}
-.rstat{border-radius:12px;padding:10px 12px;background:var(--c);color:var(--ink);min-width:0}
+.rstat{border-radius:12px;padding:10px 12px;background:var(--c);color:var(--t);min-width:0}
 .rstat .who{font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rstat .big{font:800 36px/1.05 var(--display);font-variant-numeric:tabular-nums}
 .rstat .small{font-size:12px}
-.rnone{grid-column:1/-1;color:var(--muted);font-size:13px;display:flex;align-items:center;gap:6px}
+.rnone{grid-column:1/-1;color:var(--fg);font-size:14px;display:flex;align-items:center;gap:8px}
 .codebox{display:flex;align-items:center;gap:10px;background:var(--bg);border-radius:12px;padding:8px 8px 8px 12px}
 .codebox b{font:800 26px/1 var(--display);letter-spacing:.12em;flex:1}
 .who{display:flex;flex-direction:column;gap:6px}
 .prow{display:flex;align-items:center;gap:8px;font-weight:600;min-width:0}
-.prow .dot{width:14px;height:14px}
-.prow .tag{margin-left:auto;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.prow .sw{width:18px;height:18px}
+.prow .tag{margin-left:auto;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .prow.ready .tag{color:var(--good)}
 details.setup{border-top:1px solid var(--line);padding-top:10px}
 details.setup summary{cursor:pointer;font-weight:600;color:var(--muted);font-size:13px}
@@ -139,12 +161,12 @@ details.setup[open] summary{margin-bottom:10px}
 .field{display:flex;flex-direction:column;gap:6px;min-width:0}
 .row{display:flex;gap:10px;flex-wrap:wrap}
 .row .field{flex:1 1 130px}
-.swatches{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:4px}
+.swatches{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px}
 .swcell{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0}
-.swatch{width:30px;height:30px;padding:0;border-radius:50%;border:3px solid var(--panel);box-shadow:0 0 0 1px var(--border)}
-.swatch.on{box-shadow:0 0 0 2px var(--fg)}
-.swatch.taken,.swatch.taken:disabled{opacity:1;box-shadow:0 0 0 2px var(--muted);cursor:not-allowed}
-.swcap{font-size:10px;font-weight:600;color:var(--muted);height:13px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.swatch{width:44px;height:44px;min-height:0;padding:0;border-radius:50%;border:4px solid var(--panel);box-shadow:0 0 0 1px var(--border)}
+.swatch.on{box-shadow:0 0 0 3px var(--ink)}
+.swatch.taken,.swatch.taken:disabled{opacity:1;cursor:not-allowed;border-width:13px;box-shadow:0 0 0 2px var(--muted)}
+.swcap{font-size:12px;font-weight:700;color:var(--fg);height:16px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .card input[type=text]{width:100%;font-size:16px;font-weight:500;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--fg)}
 .card select{width:100%;font-size:16px}
 .actions{display:flex;gap:8px;flex-wrap:wrap}
@@ -152,12 +174,22 @@ details.setup[open] summary{margin-bottom:10px}
 .note{color:var(--muted);font-size:13px;margin:-4px 0 0;min-height:1em}
 .join{display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:12px}
 .join #code{flex:1 1 90px;min-width:0;text-transform:uppercase}
-.credit{color:var(--muted);font-size:11px;margin:0;text-align:center}
+.credit{color:var(--muted);font-size:12px;margin:0;text-align:center}
 #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20;max-width:90vw;text-align:center}
 #toast.on{opacity:1}
 
+.app[data-phase="done"] .play,.app[data-phase="wait"] .play{display:none}
+@media (pointer:coarse){
+  button,select,.rv,.rvrow input{min-height:44px}
+  .zoomctl button{width:44px;height:44px}
+}
 @media (max-width:899px){
+  /* small map: the two map options sit behind one button next to the zoom buttons */
+  #togMore{display:block}
+  .maptog{left:auto;top:auto;right:8px;bottom:60px;display:none}
+  .maptog.open{display:flex}
   h1{display:none}
+  .app[data-phase="done"] .main,.app[data-phase="wait"] .main{grid-template-rows:minmax(96px,1fr) auto}
   .app[data-phase="home"] .top,.app[data-phase="lobby"] .top{display:none}
   .pchip{flex:1 1 0;padding:5px 9px;gap:5px}
   .plead .w{display:none}
@@ -178,11 +210,11 @@ details.setup[open] summary{margin-bottom:10px}
   .board{flex:none}
   .pchip{padding:6px 14px}
   .zoomctl{flex-direction:column;right:10px;bottom:10px}
-  .zoomctl button{width:36px;height:36px;font-size:18px}
   .clock{font-size:28px}
 }
 @media (prefers-reduced-motion: reduce){
   #toast,#map .land,#map .mk,.share i{transition:none}
+  *{scroll-behavior:auto!important}
   .names .n.new{animation:none}
 }
 </style>
@@ -193,7 +225,6 @@ details.setup[open] summary{margin-bottom:10px}
     <h1>Country Race</h1>
     <div class="board" id="board" hidden></div>
     <span class="clock" id="clock" role="timer" title="Time">15:00</span>
-    <button id="sheetBtn" type="button" hidden>Results</button>
   </header>
   <div class="share" id="share" role="img" aria-label="Share of the world found" hidden><i id="shareMe"></i><i id="shareOpp"></i></div>
   <div class="status" id="status" role="status" hidden></div>
@@ -209,15 +240,31 @@ details.setup[open] summary{margin-bottom:10px}
         <div class="tabs" id="tabs" role="tablist"></div>
         <button id="giveUp" type="button" hidden>Give up</button>
       </div>
+      <div class="review" id="review" hidden>
+        <div class="rvtop"><p id="rvSummary"></p><button id="sheetBtn" type="button" hidden>Results</button></div>
+        <div class="rvrow">
+          <input type="search" id="rvSearch" placeholder="Search countries" aria-label="Search countries" autocomplete="off" spellcheck="false">
+          <select id="rvRegion" aria-label="Region">
+            <option value="all">All regions</option>
+            <option>Africa</option><option>Asia</option><option>Europe</option><option>North America</option><option>South America</option><option>Oceania</option>
+            <option value="small">Small places</option>
+          </select>
+        </div>
+        <div class="filters" id="filters" role="group" aria-label="Show countries found by"></div>
+      </div>
       <div class="conts" id="conts" hidden></div>
-      <div class="list" id="list" role="tabpanel" aria-label="Countries" tabindex="0"></div>
+      <div class="list" id="list" role="tabpanel" aria-label="Countries you found" tabindex="0"></div>
     </aside>
     <div class="mapwrap">
       <svg id="map" viewBox="0 0 960 470" role="img" aria-label="World map"></svg>
-      <button class="smallbtn" id="smallBtn" type="button" aria-expanded="false" aria-controls="smallPop" hidden></button>
-      <div class="smallpop" id="smallPop" hidden></div>
+      <div class="maptog" id="maptog" role="group" aria-label="Show on the map">
+        <button id="togNames" type="button" aria-pressed="true">Names</button>
+        <button id="togMarkers" type="button" aria-pressed="true">Markers</button>
+      </div>
+      <div class="legend" id="legend" hidden></div>
       <div class="count" id="count" hidden aria-live="assertive"></div>
       <div class="zoomctl">
+        <button id="togMore" type="button" aria-label="Map options: names and markers" aria-expanded="false" aria-controls="maptog">Aa</button>
         <button id="zin" type="button" aria-label="Zoom in">+</button>
         <button id="zout" type="button" aria-label="Zoom out">−</button>
         <button id="zreset" type="button" aria-label="Reset zoom">⤢</button>
@@ -251,7 +298,7 @@ details.setup[open] summary{margin-bottom:10px}
         </details>
         <div class="actions">
           <button id="startBtn" type="button" class="go">Play solo</button>
-          <button id="viewBtn" type="button" hidden>View map</button>
+          <button id="viewBtn" type="button" hidden>Review map</button>
         </div>
         <p class="note" id="readyNote" aria-live="polite" hidden></p>
         <div class="join" id="roomSolo">
@@ -266,6 +313,7 @@ details.setup[open] summary{margin-bottom:10px}
   </main>
 </div>
 <div id="toast" role="status"></div>
+<div id="live" class="sr" aria-live="polite"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js" integrity="sha384-Ukv1p/xTma6P4/2bY5KzWBw+ydSpXmhCMtyciIQVDJ1RmOxtCYNMF1uXT9T63H67" crossorigin="anonymous"></script>
@@ -328,8 +376,8 @@ let unsubs = [], myJoined = null, myDone = null, announced = false;
 // Lobby: both players press Ready; the host's page then starts the round for everyone.
 let ready = false, durAt = 0, startingFor = 0;
 // Who named each country first. The host's page decides (in the order guesses reach it) and tells the guest,
-// so both maps show the same owner. Until that arrives, each page uses the order it saw things in.
-let guestOwner = {}; const firstSeen = new Map();
+// so both screens say the same thing in the review.
+let guestOwner = {};
 function ownerMap(){ return isHost ? (hostDocs.owner || (hostDocs.owner = {})) : guestOwner; }
 const cleanName = s => String(s ?? "").replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, 14);
 let myName = "";
@@ -381,28 +429,38 @@ function toast(msg){ toastEl.textContent = msg; toastEl.classList.add("on"); cle
 function playerOrder(){ return [...players.entries()].sort((a,b)=>a[1].joinedAt-b[1].joinedAt).map(x=>x[0]); }
 function countOf(uid){ return uid === me ? found.size : (players.get(uid)?.count || 0); }
 function timeUp(){ return round != null && !!duration && Date.now() >= startedAt + duration * 1000; }
-function allDone(){ if (round == null) return false; if (timeUp() || endedAt || Date.now() - startedAt > 2 * 3600e3) return true; return players.size > 0 && [...players.entries()].every(([id, p]) => id === me ? !!myDone : !!p.doneAt); }
+function allDone(){ if (round == null) return false; if (timeUp() || endedAt || Date.now() - startedAt > 2 * 3600e3) return true; const o = opponent(); return players.size > 0 && (!players.has(me) || !!myDone) && (!o || !!players.get(o).doneAt); }   // me and the player I'm racing; someone who left and was replaced doesn't hold the round open
 // Player colors: each player picks one in the lobby; two players can't hold the same one.
-// Soft colors that read on white land and under dark labels
-const PALETTE = Object.assign(Object.create(null), {sage: "#86c79f", sky: "#86b7e6", peach: "#f2b791", lilac: "#bcaae6", mint: "#84cfc6", butter: "#ead27f", rose: "#eba7c0", slate: "#a3b3c4"});
-let myColor = "sage";
+// Strong, clearly different colors. Each one stands out from the land and the sea (3:1 or better) and from
+// every other one, also for the common kinds of color blindness; tests/two-player.mjs checks both.
+const PALETTE = Object.assign(Object.create(null), {blue: "#297BFF", amber: "#AF740E", pink: "#EB00B8", green: "#005227", violet: "#64008F", teal: "#0A7276"});
+// A country both players named gets this color, which nobody can pick
+const SHARED = "#1F2A33";
+// Black or white text, whichever reads better on a color
+function textOn(hex){
+  const [r, g, b] = [1, 3, 5].map(i => { const v = parseInt(hex.slice(i, i + 2), 16) / 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.179 ? "#000000" : "#ffffff";
+}
+let myColor = "blue";
 try { const s = localStorage.getItem("country-race-color"); if (PALETTE[s]) myColor = s; } catch {}
 function colorKeyOf(uid){
   if (uid === me) return myColor;
   const c = present().find(p => p.uid === uid)?.color || players.get(uid)?.color;   // live choice first
-  // Never show the other player in my color: if they still hold it, show the one they are about to move to
-  if (c === myColor && me < uid) return Object.keys(PALETTE).find(k => k !== myColor);
-  return PALETTE[c] ? c : (myColor === "sky" ? "sage" : "sky");
+  // Never show the other player in my color. On a clash the host keeps the color and the guest moves,
+  // so the host shows the guest in the color the guest is about to move to.
+  if (c === myColor && isHost) return Object.keys(PALETTE).find(k => k !== myColor);
+  return PALETTE[c] ? c : (myColor === "blue" ? "amber" : "blue");
 }
 function colorOf(uid){ return PALETTE[colorKeyOf(uid)]; }
 function takenColors(){
   // The other player's color stays theirs even while they are disconnected
-  return new Set([...present().map(p => p.uid), ...players.keys()].filter(uid => uid !== me).map(colorKeyOf));
+  return new Set([...present().map(p => p.uid), opponent()].filter(uid => uid && uid !== me).map(colorKeyOf));
 }
-// If the other player already holds my color, the player with the later id moves to the first free one.
+// If the host already holds my color, I (the guest) move to the first free one.
 function resolveColorClash(){
+  if (!shared || isHost) return;
   for (const p of present()) {
-    if (p.uid !== me && colorKeyOf(p.uid) === myColor && me > p.uid) {
+    if (p.uid !== me && colorKeyOf(p.uid) === myColor) {
       const taken = takenColors(); myColor = Object.keys(PALETTE).find(k => !taken.has(k)) || myColor;
     }
   }
@@ -424,46 +482,42 @@ const g = svg.append("g");
 let pins = new Map(), shapes = new Map(), labels = new Map(), zoom;
 // Small places: countries whose shape is too small to see on the map (microstates and small islands).
 // Worked out from each shape's drawn area, in map units: the whole country, or its biggest island.
-// Each gets a ring marker that fills in like a country, so it isn't forgotten.
+// Each gets a round marker that follows the same color rules as the land.
 const SMALL = new Set(), markers = new Map(), SMALL_AREA = 10, SMALL_ISLAND = 6;
-let mkR = 4, zoomRegion = () => {};
-// Where the small places cluster, as [name, west, east, south, north]; anything else goes by continent
-const REGIONS = [["Caribbean", -92, -58, 8, 28], ["Europe", -12, 30, 35, 62], ["Middle East", 30, 60, 12, 40], ["Indian Ocean", 40, 80, -25, 10], ["West Africa", -30, 12, -5, 20]];
-function regionOf(c){
-  const [lon, lat] = c.ll || [0, 0];
-  if ((lon >= 130 || lon <= -150) && lat >= -30 && lat <= 25) return "Pacific";
-  return REGIONS.find(r => lon >= r[1] && lon <= r[2] && lat >= r[3] && lat <= r[4])?.[0] || c.cont;
-}
+let mkR = 4, mapS = 1, zoomTo = () => {};
+// Map options, remembered on this device: country names, and the markers for small places
+const savedOn = key => { try { return localStorage.getItem(key) !== "0"; } catch { return true; } };
+let showNames = savedOn("country-race-show-names"), showMarkers = savedOn("country-race-show-markers");
 // Markers keep about the same size on screen whatever the map's size, and grow only a little as you zoom in
 function sizeMarkers(){
   const box = svg.node().getBoundingClientRect(), s = Math.min(box.width / 960, box.height / 470);
   if (!(s > 0)) return;
-  mkR = (s < 0.6 ? 3 : 4) / s / Math.pow(curK, 0.75);
+  mapS = s; mkR = (s < 0.6 ? 4 : 5) / s / Math.pow(curK, 0.75);
   markers.forEach(m => m.attr("r", mkR));
 }
-// Labels sit at each country's visual center (the point deepest inside its main landmass)
-// and are sized to fit inside it, between 6px and 15px on screen at any zoom.
-// Bigger countries are placed first; a name that would overlap one already placed is hidden
-// until zooming in makes room for it.
+// Names sit at each country's visual center (the point deepest inside its main landmass), or just under the
+// marker of a small place. They are sized to fit the country but never smaller than 9px on screen, whatever
+// the size of the map. Bigger countries are placed first; a name that would overlap one already placed is
+// hidden until zooming in makes room for it.
 let curK = 1, layoutQueued = false;
 const measureCtx = document.createElement("canvas").getContext("2d");
 function textWidth1(s){ measureCtx.font = '700 100px Inter, ui-sans-serif, system-ui, sans-serif'; return measureCtx.measureText(s).width / 100 * 1.06; }
 function layoutLabels(k){
   curK = k;
-  const placed = [], pad = 1.2 / k;
+  const z = k * mapS, placed = [], pad = 1.5 / z;   // z: screen pixels per map unit
   const hit = b => placed.some(p => b.x0 < p.x1 && b.x1 > p.x0 && b.y0 < p.y1 && b.y1 > p.y0);
-  const order = [...labels.values()].sort((a, b) => b.r - a.r);
+  const order = [...labels.values()].sort((a, b) => (b.first || 0) - (a.first || 0) || b.r - a.r);
   for (const l of order) {
     if (!l.on) { l.el.attr("display", "none"); continue; }
     if (!l.w1) l.w1 = textWidth1(l.el.text());
     const fit = Math.min(0.86 * l.span / l.w1, 1.15 * l.r);   // map units that fit inside the country
-    const px = Math.max(6, Math.min(15, fit * k)), fs = px / k;
-    const w = l.w1 * fs + 2 * pad, h = fs * 1.1 + 2 * pad, cx = l.xy[0], cy = l.small ? l.xy[1] + mkR + fs * 0.75 : l.xy[1];   // a small place's name sits under its marker
+    const px = l.first ? 14 : Math.max(9, Math.min(15, fit * z)), fs = px / z;
+    const w = l.w1 * fs + 2 * pad, h = fs * 1.1 + 2 * pad, cx = l.xy[0], cy = l.small ? l.xy[1] + mkR + fs * 0.8 : l.xy[1];   // a small place's name sits under its marker
     const b = {x0: cx - w / 2, x1: cx + w / 2, y0: cy - h / 2, y1: cy + h / 2};
-    if (hit(b)) { l.el.attr("display", "none"); continue; }
+    if (!l.first && hit(b)) { l.el.attr("display", "none"); continue; }
     placed.push(b);
     if (l.small) l.el.attr("y", cy);
-    l.el.attr("display", null).style("font-size", fs + "px").style("stroke-width", (2.6 / k) + "px");
+    l.el.attr("display", null).style("font-size", fs + "px").style("stroke-width", (3 / z) + "px");
   }
 }
 // Pole of inaccessibility (polylabel algorithm): the point inside a polygon farthest from its edges.
@@ -519,6 +573,7 @@ async function drawMap(){
   for (const f of feats) {
     const nm = f.properties.name, owner = BYKEY.get(nm) || BYKEY.get(ATTACH[nm]);
     const el = g.append("path").attr("d", path(f)).attr("class", owner ? "land" : "land other");
+    if (owner) el.on("click", () => pick(owner.i, "map"));
     if (owner) { const arr = shapes.get(owner.i) || []; arr.push(el); shapes.set(owner.i, arr); owner.area = (owner.area || 0) + path.area(f); }
     if (BYKEY.get(nm)) {
       let geo = f.geometry, best = geo;
@@ -539,7 +594,7 @@ async function drawMap(){
   for (const [k, ll] of Object.entries(MANUAL)) { BYKEY.get(k).xy = proj(ll); BYKEY.get(k).r = 0.3; BYKEY.get(k).span = 0.6; BYKEY.get(k).ll = ll; }
   for (const c of LIST) if (c.xy && ((c.area || 0) < SMALL_AREA || (c.big || 0) < SMALL_ISLAND)) SMALL.add(c.i);
   const pg = g.append("g");
-  for (const c of LIST) if (SMALL.has(c.i)) markers.set(c.i, pg.append("circle").attr("cx", c.xy[0]).attr("cy", c.xy[1]).attr("r", mkR).attr("class", "mk"));
+  for (const c of LIST) if (SMALL.has(c.i)) markers.set(c.i, pg.append("circle").attr("cx", c.xy[0]).attr("cy", c.xy[1]).attr("r", mkR).attr("class", "mk").on("click", () => pick(c.i, "map")));
   for (const c of LIST) if (c.xy && !SMALL.has(c.i)) pins.set(c.i, pg.append("circle").attr("cx", c.xy[0]).attr("cy", c.xy[1]).attr("r", 2.6).attr("class","pin"));
   const lg = g.append("g");
   for (const c of LIST) if (c.xy) labels.set(c.i, {r: c.r, span: c.span, xy: c.xy, on: false, small: SMALL.has(c.i), el: lg.append("text").attr("class","mlabel").attr("x", c.xy[0]).attr("y", c.xy[1])
@@ -554,18 +609,14 @@ async function drawMap(){
   $("zin").onclick = () => svg.transition().duration(ZOOM_MS).call(zoom.scaleBy, 1.8);
   $("zout").onclick = () => svg.transition().duration(ZOOM_MS).call(zoom.scaleBy, 1/1.8);
   $("zreset").onclick = () => svg.transition().duration(ZOOM_MS).call(zoom.transform, d3.zoomIdentity);
-  // Zoom the map onto one cluster of small places (or back out to the whole map)
-  zoomRegion = name => {
-    const pts = [...SMALL].map(i => LIST[i]).filter(c => regionOf(c) === name).map(c => c.xy);
-    let t = d3.zoomIdentity;
-    if (pts.length) {
-      const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]), pad = 14;
-      const x0 = Math.min(...xs) - pad, x1 = Math.max(...xs) + pad, y0 = Math.min(...ys) - pad, y1 = Math.max(...ys) + pad;
-      const k = Math.max(1, Math.min(12, 0.95 / Math.max((x1 - x0) / 960, (y1 - y0) / 470)));
-      const clamp = (v, lo) => Math.min(0, Math.max(lo, v));   // stay inside the map
-      t = d3.zoomIdentity.translate(clamp(480 - k * (x0 + x1) / 2, 960 - 960 * k), clamp(235 - k * (y0 + y1) / 2, 470 - 470 * k)).scale(k);
-    }
-    svg.transition().duration(ZOOM_MS).call(zoom.transform, t);
+  // Bring one country into view (used by the review list)
+  zoomTo = i => {
+    const c = LIST[i]; if (!c?.xy) return;
+    let x0 = c.xy[0] - 6, x1 = c.xy[0] + 6, y0 = c.xy[1] - 6, y1 = c.xy[1] + 6;
+    if (!SMALL.has(i)) for (const sh of shapes.get(i) || []) { const b = sh.node().getBBox(); if (b.width > 600) continue; x0 = Math.min(x0, b.x); x1 = Math.max(x1, b.x + b.width); y0 = Math.min(y0, b.y); y1 = Math.max(y1, b.y + b.height); }
+    const k = Math.max(1.5, Math.min(12, 0.4 / Math.max((x1 - x0) / 960, (y1 - y0) / 470)));
+    const clamp = (v, lo) => Math.min(0, Math.max(lo, v));   // stay inside the map
+    svg.transition().duration(ZOOM_MS).call(zoom.transform, d3.zoomIdentity.translate(clamp(480 - k * (x0 + x1) / 2, 960 - 960 * k), clamp(235 - k * (y0 + y1) / 2, 470 - 470 * k)).scale(k));
   };
   sizeMarkers();
   if (window.ResizeObserver) new ResizeObserver(() => { sizeMarkers(); queueLayout(curK); }).observe(svg.node());
@@ -584,89 +635,74 @@ const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls)
 const pct = n => Math.round(n / TOTAL * 100) + "%";
 const CONT_SHORT = {"Africa": ["AF", "Africa"], "Europe": ["EU", "Europe"], "Asia": ["AS", "Asia"], "North America": ["NA", "N. America"], "South America": ["SA", "S. America"], "Oceania": ["OC", "Oceania"]};
 const wide = matchMedia("(min-width: 900px)");
-let tabRace = null, tabOver = null, sheetHidden = false, lastSheetPhase = null, listSig = "";
+let tabRace = null, sheetHidden = false, lastSheetPhase = null, listSig = "";
+// Screen-reader announcements: one short line at a time, only for my own finds, lead changes and the result
+let liveT = null;
+function announce(msg){ clearTimeout(liveT); liveT = setTimeout(() => { $("live").textContent = msg; }, 150); }
+let saidFound = 0, saidLead = null, saidResult = null;
+// The other player: whoever is connected now, else the last one who played this round
+function opponent(){
+  if (round == null) return null;
+  const ids = playerOrder().filter(id => id !== me && players.get(id)?.got), live = present().find(p => p.uid !== me)?.uid;
+  return ids.includes(live) ? live : ids.length ? ids[ids.length - 1] : null;
+}
+// Review of a finished round: which countries are listed, and the one picked on the map or in the list
+let rvFilter = "all", rvRegion = "all", rvQuery = "", sel = null;
+const stateOf = new Map();   // country -> "me" | "opp" | "both" | "none", as last drawn
+let view = {};               // what the last draw worked out, for the list and the review
 function render(){
   const ph = phase(), over = isOver();
   $("app").dataset.phase = ph;
   resolveColorClash();
-  // Head-to-head: every country is one solid color, the color of whoever named it first.
+  // Head-to-head: every country is one solid color. Mine, the other player's, or the shared color when we both named it.
   // The other player's countries get a name label only once the game is over.
-  const oppId = round != null ? playerOrder().find(id => id !== me && players.get(id)?.got) : null;
+  const oppId = opponent();
   const theirs = oppId ? new Set(players.get(oppId).got.map(Number)) : null;
   const myFill = colorOf(me), oppFill = oppId ? colorOf(oppId) : null;
-  const auth = shared ? ownerMap() : {};
-  const own = new Map(), tally = {me: 0, opp: 0, none: 0, smallNone: 0};
+  const fillFor = {me: myFill, opp: oppFill, both: SHARED, none: over ? (theirs ? "var(--none)" : "var(--missland)") : null};
+  const tally = {me: found.size, opp: theirs ? theirs.size : 0, both: 0, none: 0};
+  if (!over) sel = null;
   for (const c of LIST) {
-    const mine = found.has(c.i), th = !!theirs?.has(c.i);
-    let o = null;
-    if (mine || th) {
-      if (!firstSeen.has(c.i)) firstSeen.set(c.i, mine ? me : oppId);
-      const a = auth[c.i];
-      o = a === me || (a === oppId && oppId) ? a : firstSeen.get(c.i);
-      tally[o === me ? "me" : "opp"]++;
-    } else { tally.none++; if (SMALL.has(c.i)) tally.smallNone++; }
-    own.set(c.i, o);
-    const missed = !theirs && over && !mine;
-    const fill = o ? (o === me ? myFill : oppFill) : (over && theirs ? "var(--none)" : null);
+    const mine = found.has(c.i), th = !!theirs?.has(c.i), st = mine && th ? "both" : mine ? "me" : th ? "opp" : "none";
+    stateOf.set(c.i, st); if (st === "both" || st === "none") tally[st]++;
+    const fill = fillFor[st], on = st !== "none", missed = !theirs && over && !mine, picked = sel === c.i;
     (shapes.get(c.i) || []).forEach(s => {
-      s.style("fill", fill).classed("missed", missed);
+      s.style("fill", fill).classed("on", on).classed("sel", picked);
+      if (picked) s.raise();
       s.select("title").remove(); if (mine || over) s.append("title").text(c.name);
     });
-    const p = pins.get(c.i); if (p) p.attr("display", o || over ? "none" : null);
+    const p = pins.get(c.i); if (p) p.attr("display", on || over ? "none" : null);
     const mk = markers.get(c.i);
     if (mk) {
-      mk.style("fill", o ? fill : null).classed("on", !!o).classed("missed", !o && (theirs ? ph === "done" : over));   // when the round is over, unfound small places stand out
+      mk.style("fill", fill).classed("on", on).classed("sel", picked).attr("display", showMarkers || picked ? null : "none");
       mk.select("title").remove(); if (mine || over) mk.append("title").text(c.name);
     }
-    const l = labels.get(c.i); if (l) { l.on = !!(mine || over); l.el.classed("missed", missed); }
+    const l = labels.get(c.i); if (l) { l.on = picked || (showNames && (mine || over)); l.first = picked; l.el.classed("missed", missed).classed("sel", picked); }
   }
   layoutLabels(curK);
-  const fillOf = o => o ? (o === me ? myFill : oppFill) : theirs ? "var(--none)" : "var(--miss)";
-  renderBoard();
-  renderList(over, oppId, theirs, own, fillOf, tally);
+  view = {ph, over, oppId, theirs, fillFor, tally};
+  renderBoard(ph);
+  renderLegend();
+  if (over) renderReview(); else renderList();
   renderSheet(ph, tally);
-  renderSmall(ph, over, theirs ? own : null);
   renderControls();
+  for (const [id, on] of [["togNames", showNames], ["togMarkers", showMarkers]]) $(id).setAttribute("aria-pressed", String(on));
+  if (ph === "race" && found.size > saidFound) { const last = [...found.keys()].pop(); announce(`${LIST[last].name}. ${found.size} found.`); }
+  saidFound = found.size;
   pushPresence();
 }
-// Small places still to find: a quiet count on the map. Tapping it lists where they are (regions, never names,
-// so it's a hint and not the answer); tapping a region zooms the map there.
-let smallOpen = false;
-function renderSmall(ph, over, own){
-  const btn = $("smallBtn"), pop = $("smallPop"), show = round != null && SMALL.size > 0 && ph !== "count";
-  // While I play it counts the ones I still need; once a two-player round is over, the ones nobody found
-  const nobody = ph === "done" && !!own, isLeft = i => nobody ? !own.get(i) : !found.has(i);
-  btn.hidden = !show; if (!show) smallOpen = false;
-  pop.hidden = !show || !smallOpen; btn.setAttribute("aria-expanded", String(show && smallOpen));
-  if (!show) return;
-  const n = [...SMALL].filter(isLeft).length;
-  btn.textContent = ""; btn.append(el("i", "ring" + (over && n ? " miss" : "")), n ? `${n} small ${n === 1 ? "place" : "places"} ${nobody ? "nobody found" : over ? "missed" : "left"}` : "All small places found");
-  btn.dataset.left = n;
-  if (pop.hidden) return;
-  pop.textContent = ""; pop.append(el("span", "lbl", "Where they are"));
-  const by = new Map(); for (const i of SMALL) { const r = regionOf(LIST[i]), e = by.get(r) || [0, 0]; e[0]++; if (isLeft(i)) e[1]++; by.set(r, e); }
-  for (const [name, [, miss]] of [...by.entries()].sort((a, b) => b[1][0] - a[1][0])) {
-    const b = el("button", miss ? "" : "clear", name); b.type = "button"; b.dataset.region = name; b.append(el("b", null, miss ? String(miss) : "✓"));
-    b.setAttribute("aria-label", `${name}: ${miss} left. Zoom the map here.`);
-    b.onclick = () => { zoomRegion(name); smallOpen = false; render(); };
-    pop.append(b);
-  }
-  const all = el("button", "clear", "Whole map"); all.type = "button"; all.onclick = () => { zoomRegion(null); smallOpen = false; render(); }; pop.append(all);
-}
-$("smallBtn").onclick = () => { smallOpen = !smallOpen; render(); };
-const closeSmall = () => { if (smallOpen) { smallOpen = false; render(); } };
-addEventListener("keydown", e => { if (e.key === "Escape") closeSmall(); });
-addEventListener("pointerdown", e => { if (!e.target.closest?.("#smallBtn, #smallPop")) closeSmall(); });
 // Scoreboard: one chip per player in that player's color, with count, share of the world and the lead.
-function renderBoard(){
+function renderBoard(ph){
   const bd = $("board"), sh = $("share"); bd.textContent = "";
-  const ids = round != null ? playerOrder().sort((a, b) => (b === me) - (a === me)) : [];
+  const ids = round != null ? [me, opponent()].filter(Boolean) : [];   // me first, then the player I'm racing
   bd.hidden = sh.hidden = !ids.length;
   if (!ids.length) return;
   const counts = ids.map(countOf), sorted = [...counts].sort((a, b) => b - a), gap = sorted.length > 1 ? sorted[0] - sorted[1] : 0;
+  let leader = ids.length > 1 ? "tie" : null;
   ids.forEach((uid, k) => {
     const n = counts[k], lead = gap > 0 && n === sorted[0], nm = uid === me ? "You" : nameOf(uid);
-    const ch = el("div", "pchip" + (lead ? " lead" : "")); ch.style.setProperty("--c", colorOf(uid)); ch.dataset.uid = uid;
+    if (lead) leader = uid;
+    const ch = el("div", "pchip" + (lead ? " lead" : "")); ch.style.setProperty("--c", colorOf(uid)); ch.style.setProperty("--t", textOn(colorOf(uid))); ch.dataset.uid = uid;
     ch.append(el("span", "pname", nm), el("span", "pcount", n), el("span", "ppct", pct(n)));
     if (lead) { const ld = el("span", "plead", "+" + gap); ld.append(el("span", "w", " ahead")); ch.append(ld); }
     const done = uid === me ? myDone : players.get(uid)?.doneAt;
@@ -675,30 +711,38 @@ function renderBoard(){
     ch.setAttribute("aria-label", `${nm}: ${n} of ${TOTAL} found, ${pct(n)} of the world${lead ? `, ahead by ${gap}` : ids.length > 1 && gap === 0 ? ", tied" : ""}`);
     bd.append(ch);
   });
+  if (ph === "race" && leader && saidLead && leader !== saidLead) announce(leader === "tie" ? "Scores are tied." : leader === me ? "You take the lead." : `${nameOf(leader)} takes the lead.`);
+  saidLead = leader;
   // Share bar: my part grows from the left, the other player's from the right
   const a = counts[0], b = ids.length > 1 ? counts[1] : 0, scale = Math.max(TOTAL, a + b);
   $("shareMe").style.width = a / scale * 100 + "%"; $("shareMe").style.background = colorOf(ids[0]);
   $("shareOpp").style.width = b / scale * 100 + "%"; $("shareOpp").style.background = ids.length > 1 ? colorOf(ids[1]) : "transparent";
 }
-// The found list. While racing: my countries, newest first or by continent.
-// When I'm finished: what nobody found, my list and the other player's list.
-function renderList(over, oppId, theirs, own, fillOf, tally){
-  const tabs = over
-    ? (theirs ? [["none", `Nobody ${tally.none}`], ["me", `You ${found.size}`], ["opp", `${nameOf(oppId)} ${theirs.size}`]]
-              : [["none", `Missed ${TOTAL - found.size}`], ["me", `Found ${found.size}`]])
-    : [["recent", "Newest"], ["cont", "By continent"]];
-  let tab = over ? tabOver : tabRace;
-  if (!tabs.some(t => t[0] === tab)) tab = over ? "none" : (wide.matches ? "cont" : "recent");
-  const sig = [tab, over, tabs.map(t => t[1]).join("/"), [...found.keys()].join(), [...own.values()].map(o => o ? (o === me ? 1 : 2) : 0).join(""), fillOf(me), fillOf(oppId || "-")].join("|");
+// Map key for the colors that aren't on the scoreboard
+function renderLegend(){
+  const {over, theirs} = view, lg = $("legend"), keys = [];
+  if (theirs) keys.push([SHARED, "Both"]);
+  if (over) keys.push(theirs ? ["var(--none)", "Nobody"] : ["var(--missland)", "Missed"]);
+  lg.hidden = !keys.length; lg.textContent = "";
+  for (const [c, txt] of keys) { const k = el("span", "key"), s = el("i", "sw"); s.style.background = c; k.append(s, txt); lg.append(k); }
+}
+// While racing: my countries, newest first or by continent.
+function renderList(){
+  const {fillFor} = view;
+  $("review").hidden = true; $("tabs").hidden = false;
+  const tabs = [["recent", "Newest"], ["cont", "By continent"]];
+  let tab = tabRace; if (!tabs.some(t => t[0] === tab)) tab = wide.matches ? "cont" : "recent";
+  const sig = ["race", tab, [...found.keys()].join(), LIST.map(c => stateOf.get(c.i)[0]).join(""), fillFor.me, fillFor.opp].join("|");
   if (sig === listSig) return; listSig = sig;
   const tb = $("tabs"); tb.textContent = "";
   for (const [k, txt] of tabs) {
     const b = el("button", "tab", txt); b.type = "button"; b.setAttribute("role", "tab"); b.setAttribute("aria-selected", String(k === tab)); b.dataset.tab = k;
-    b.onclick = () => { if (over) tabOver = k; else tabRace = k; render(); };
+    b.onclick = () => { tabRace = k; render(); };
     tb.append(b);
   }
-  const item = (c, cls) => { const n = el("span", "n" + (cls ? " " + cls : "") + (cls === "missed" && SMALL.has(c.i) ? " sm" : "")); const d = el("i", "dot"); d.style.background = fillOf(own.get(c.i)); n.append(d, c.name); return n; };
+  const item = (c, cls) => { const n = el("span", "n" + (cls ? " " + cls : "")), d = el("i", "dot"); d.style.background = fillFor[stateOf.get(c.i)]; n.append(d, c.name); return n; };
   const strip = $("conts"), box = $("list"); strip.hidden = tab !== "recent"; strip.textContent = ""; box.textContent = "";
+  box.setAttribute("role", "tabpanel"); box.setAttribute("aria-label", "Countries you found"); box.removeAttribute("aria-activedescendant");
   if (tab === "recent") {
     for (const cont of Object.keys(DATA)) {
       const cs = LIST.filter(c => c.cont === cont), cell = el("span", "cc"); cell.title = cont;
@@ -712,68 +756,146 @@ function renderList(over, oppId, theirs, own, fillOf, tally){
     box.append(names); box.scrollTop = 0;
     return;
   }
-  const pick = tab === "cont" || tab === "me" ? c => found.has(c.i) : tab === "opp" ? c => theirs.has(c.i) : c => !found.has(c.i) && !theirs?.has(c.i);
   for (const cont of Object.keys(DATA)) {
-    const cs = LIST.filter(c => c.cont === cont), show = cs.filter(pick);
+    const cs = LIST.filter(c => c.cont === cont), show = cs.filter(c => found.has(c.i));
     const grp = el("div", "grp"), h = el("h3", null, cont); h.append(el("span", null, `${show.length} / ${cs.length}`));
     const names = el("div", "names");
-    if (!show.length) names.append(el("span", "empty", tab === "none" ? "All found" : "None yet"));
-    for (const c of show) names.append(item(c, tab === "none" ? "missed" : ""));
+    if (!show.length) names.append(el("span", "empty", "None yet"));
+    for (const c of show) names.append(item(c));
     grp.append(h, names); box.append(grp);
   }
 }
+// When I'm finished: every country, with filters (who found it, region, search). Picking a row shows it on the map;
+// picking a country on the map shows its row.
+const RV_FILTERS = {all: () => true, me: i => found.has(i), opp: i => !!view.theirs?.has(i), both: i => stateOf.get(i) === "both", none: i => stateOf.get(i) === "none"};
+function statusText(i){
+  const st = stateOf.get(i), {theirs, oppId} = view;
+  if (!theirs) return st === "me" ? "Found" : "Missed";
+  if (st === "both") { const o = ownerMap()[i]; return "Both" + (o === me ? ", you first" : o === oppId ? `, ${nameOf(oppId)} first` : ""); }
+  return st === "me" ? "You" : st === "opp" ? nameOf(oppId) : "Nobody";
+}
+function reviewRows(){
+  const q = norm(rvQuery);
+  const scope = LIST.filter(c => (rvRegion === "all" || (rvRegion === "small" ? SMALL.has(c.i) : c.cont === rvRegion)) && (!q || norm(c.name).includes(q)));
+  return {scope, rows: scope.filter(c => RV_FILTERS[rvFilter](c.i)).sort((a, b) => a.name.localeCompare(b.name))};
+}
+function renderReview(){
+  const {ph, theirs, oppId, fillFor, tally} = view;
+  $("review").hidden = false; $("tabs").hidden = true; $("conts").hidden = true;
+  const kinds = theirs ? [["all", "All"], ["me", "Mine"], ["opp", "Theirs"], ["both", "Both"], ["none", "Nobody"]] : [["all", "All"], ["me", "Found"], ["none", "Missed"]];
+  if (!kinds.some(k => k[0] === rvFilter)) rvFilter = "all";
+  const a = tally.me, b = tally.opp;
+  $("rvSummary").textContent = !theirs ? `You found ${a} of ${TOTAL}` : ph !== "done" ? `You have ${a}. Waiting for ${nameOf(oppId)} to finish.`
+    : a === b ? `Tie, ${a} each` : `${a > b ? "You win" : nameOf(oppId) + " wins"}, ${Math.max(a, b)} to ${Math.min(a, b)}`;
+  const {scope, rows} = reviewRows();
+  const sig = ["review", ph, rvFilter, rvRegion, norm(rvQuery), LIST.map(c => stateOf.get(c.i)[0]).join(""), fillFor.me, fillFor.opp, theirs ? nameOf(oppId) : "", JSON.stringify(theirs ? ownerMap() : 0)].join("|");
+  if (sig === listSig) return; listSig = sig;
+  const fb = $("filters"); fb.textContent = "";
+  for (const [k, txt] of kinds) {
+    const n = scope.filter(c => RV_FILTERS[k](c.i)).length, btn = el("button", "tab", txt); btn.type = "button"; btn.dataset.f = k; btn.dataset.n = n;
+    btn.append(el("b", null, n)); btn.setAttribute("aria-pressed", String(k === rvFilter));
+    btn.setAttribute("aria-label", `${k === "opp" ? "Found by " + nameOf(oppId) : k === "me" && theirs ? "Found by you" : k === "both" ? "Found by both" : k === "none" && theirs ? "Found by nobody" : txt}: ${n}`);
+    btn.onclick = () => { rvFilter = k; render(); };
+    fb.append(btn);
+  }
+  const box = $("list"); box.textContent = ""; box.scrollTop = 0;
+  box.setAttribute("role", "listbox"); box.setAttribute("aria-label", `Countries, ${rows.length} shown`);
+  if (sel != null && rows.some(c => c.i === sel)) box.setAttribute("aria-activedescendant", "rv-" + sel); else box.removeAttribute("aria-activedescendant");
+  if (!rows.length) { box.append(el("span", "empty", "No countries match.")); return; }
+  for (const c of rows) {
+    const st = stateOf.get(c.i), row = el("div", "rv"), sw = el("i", "sw"); sw.style.background = fillFor[st];
+    row.id = "rv-" + c.i; row.dataset.i = c.i; row.dataset.st = st; row.setAttribute("role", "option"); row.setAttribute("aria-selected", String(sel === c.i));
+    row.append(sw, el("span", "nm", c.name));
+    if (SMALL.has(c.i)) { const m = el("i", "mkdot"); m.title = "Small place, shown as a marker on the map"; row.append(m); }
+    row.append(el("span", "st", statusText(c.i)));
+    row.onclick = () => pick(c.i, "list");
+    box.append(row);
+  }
+}
+// Pick a country in the review: outline it on the map, show its name and its row
+function pick(i, from){
+  if (!isOver() || !LIST[i]) return;
+  sel = i;
+  if (from === "map" && !reviewRows().rows.some(c => c.i === i)) { rvFilter = "all"; rvRegion = "all"; rvQuery = ""; $("rvSearch").value = ""; $("rvRegion").value = "all"; }
+  render();
+  const box = $("list");
+  box.querySelectorAll('.rv[aria-selected="true"]').forEach(r => r.setAttribute("aria-selected", "false"));
+  const row = $("rv-" + i);
+  if (row) { row.setAttribute("aria-selected", "true"); box.setAttribute("aria-activedescendant", row.id); row.scrollIntoView({block: "nearest"}); }
+  if (from !== "map") zoomTo(i);
+  announce(`${LIST[i].name}: ${statusText(i)}`);
+}
+$("list").addEventListener("keydown", e => {
+  if (!isOver()) return;
+  const rows = [...$("list").querySelectorAll(".rv")]; if (!rows.length) return;
+  const at = rows.findIndex(r => +r.dataset.i === sel);
+  const to = e.key === "ArrowDown" ? Math.min(rows.length - 1, at + 1) : e.key === "ArrowUp" ? Math.max(0, at - 1) : e.key === "Home" ? 0 : e.key === "End" ? rows.length - 1
+    : e.key === "Enter" || e.key === " " ? Math.max(0, at) : -1;
+  if (to < 0) return;
+  e.preventDefault(); pick(+rows[to].dataset.i, "list");
+});
+$("rvSearch").addEventListener("input", e => { rvQuery = e.target.value; render(); });
+$("rvRegion").addEventListener("change", e => { rvRegion = e.target.value; render(); });
+// Map options, remembered on this device
+for (const [id, key] of [["togNames", "country-race-show-names"], ["togMarkers", "country-race-show-markers"]]) $(id).onclick = () => {
+  const on = id === "togNames" ? (showNames = !showNames) : (showMarkers = !showMarkers);
+  try { localStorage.setItem(key, on ? "1" : "0"); } catch {}
+  render();
+};
+$("togMore").onclick = () => { const open = $("maptog").classList.toggle("open"); $("togMore").setAttribute("aria-expanded", String(open)); };
+addEventListener("pointerdown", e => { if (!e.target.closest?.("#maptog, #togMore")) { $("maptog").classList.remove("open"); $("togMore").setAttribute("aria-expanded", "false"); } });
 // Lobby and results card
 function renderSheet(ph, tally){
   const open = ph === "home" || ph === "lobby" || ph === "done";
   if (ph !== "done") sheetHidden = false;
+  const wasHidden = $("sheet").hidden;
   $("sheet").hidden = !open || sheetHidden; $("sheetBtn").hidden = !(ph === "done" && sheetHidden);
   if (!open) { lastSheetPhase = ph; return; }
   const ps = present(), versus = shared && room && ps.length > 1, opp = ps.find(p => p.uid !== me);
-  const ids = round != null ? playerOrder() : [], other = ids.find(id => id !== me), duel = ph === "done" && !!other;
-  if (ph !== lastSheetPhase) { lastSheetPhase = ph; $("setup").open = ph !== "done"; }
+  const other = view.oppId, duel = ph === "done" && !!view.theirs;
+  const fresh = ph !== lastSheetPhase;
+  if (fresh) { lastSheetPhase = ph; $("setup").open = ph !== "done"; }
   // headline
   let title = "Country Race", sub = "Name every country in the world before the clock runs out. Play solo, or race a friend live.";
   if (ph === "lobby") { title = "Race lobby"; sub = versus ? "Pick your colors, then both press Ready." : isHost ? "Send the code or the link to the other player." : "Connecting you to the game."; }
   if (ph === "done") {
-    const a = found.size, b = other ? countOf(other) : 0;
+    const a = tally.me, b = tally.opp;
     if (duel) { title = a === b ? "It's a tie" : a > b ? "You win" : `${nameOf(other)} wins`; sub = a === b ? `${a} each` : `${Math.max(a, b)} to ${Math.min(a, b)}`; }
     else { title = a === TOTAL ? "All 197 found" : "Round over"; sub = `You found ${a} of ${TOTAL}.`; }
+    if (saidResult !== round) { saidResult = round; announce(`${title}. ${sub}`); }
   }
   $("sheetTitle").textContent = title; $("sheetSub").textContent = sub;
   // results
   const rs = $("result"); rs.hidden = ph !== "done"; rs.textContent = "";
   if (ph === "done") {
     for (const uid of (duel ? [me, other] : [me])) {
-      const n = countOf(uid), st = el("div", "rstat"); st.style.setProperty("--c", colorOf(uid)); st.dataset.uid = uid;
+      const n = uid === me ? tally.me : tally.opp, st = el("div", "rstat"); st.style.setProperty("--c", colorOf(uid)); st.style.setProperty("--t", textOn(colorOf(uid))); st.dataset.uid = uid;
       st.append(el("div", "who", uid === me ? "You" : nameOf(uid)), el("div", "big", n), el("div", "small", `${pct(n)} of the world`));
-      if (duel) st.append(el("div", "small", `First to ${uid === me ? tally.me : tally.opp}`));
+      if (duel) st.append(el("div", "small", `${n - tally.both} nobody else found`));
       rs.append(st);
     }
-    const none = el("div", "rnone"), d = el("i", "dot"); d.style.background = duel ? "var(--none)" : "var(--miss)";
-    const left = duel ? tally.none : TOTAL - found.size;
-    none.append(d, left ? `${duel ? "Nobody found" : "Missed"} ${left} ${left === 1 ? "country" : "countries"}. The lists are next to the map.` : "Every country was found.");
-    rs.append(none);
-    const sm = duel ? tally.smallNone : [...SMALL].filter(i => !found.has(i)).length;
-    if (sm) { const row = el("div", "rnone"); row.id = "smallNote"; row.append(el("i", "ring miss"), `${sm} of them ${sm === 1 ? "is a small place" : "are small places"}, ringed on the map.`); rs.append(row); }
+    const line = (color, text) => { const r = el("div", "rnone"), d = el("i", "sw"); d.style.background = color; r.append(d, text); rs.append(r); };
+    if (duel) line(SHARED, `${tally.both} found by both`);
+    line(duel ? "var(--none)" : "var(--missland)", tally.none ? `${tally.none} ${duel ? "found by nobody" : "missed"}. Browse every country next to the map.` : "Every country was found.");
   }
   // who is here, in which color
   const pl = $("players"); pl.hidden = !shared; pl.textContent = "";
   if (shared) {
     for (const p of ps) {
-      const row = el("div", "prow" + (p.ready ? " ready" : "")), d = el("i", "dot"); d.style.background = colorOf(p.uid);
+      const row = el("div", "prow" + (p.ready ? " ready" : "")), d = el("i", "sw"); d.style.background = colorOf(p.uid);
       row.append(d, el("span", null, p.uid === me ? "You" : nameOf(p.uid)), el("span", "tag", p.ready ? (ph === "done" ? "Wants a rematch" : "Ready") : (ph === "done" ? "" : "Not ready")));
       pl.append(row);
     }
     if (ps.length < 2) pl.append(el("span", "empty", ph === "done" ? "The other player isn't connected." : "Waiting for the other player to join."));
   }
   // color picker: a color the other player holds can't be picked, and shows who holds it
-  const cp = $("colors"), taken = takenColors(); cp.textContent = "";
+  const cp = $("colors"), taken = takenColors(), holder = opp?.uid || other; cp.textContent = "";
   for (const [k, v] of Object.entries(PALETTE)) {
     const mine = k === myColor, held = taken.has(k), cell = el("span", "swcell");
     const b = el("button", "swatch" + (mine ? " on" : "") + (held ? " taken" : "")); b.type = "button";
-    b.style.background = v; b.disabled = held; b.setAttribute("aria-label", k + (mine ? " (yours)" : held ? ` (taken by ${nameOf(opp?.uid)})` : ""));
+    b.style.background = v; b.disabled = held; b.setAttribute("aria-label", k + (mine ? " (yours)" : held ? ` (taken by ${holder ? nameOf(holder) : "the other player"})` : ""));
     b.setAttribute("aria-pressed", String(mine)); b.onclick = () => pickColor(k);
-    cell.append(b, el("span", "swcap", mine ? "You" : held ? nameOf(opp?.uid) : ""));
+    cell.append(b, el("span", "swcap", mine ? "You" : held ? (holder ? nameOf(holder) : "Taken") : ""));
     cp.append(cell);
   }
   $("nameField").hidden = !shared;
@@ -786,6 +908,9 @@ function renderSheet(ph, tally){
   note.textContent = nt; note.hidden = !nt;
   $("viewBtn").hidden = ph !== "done";
   $("roomSolo").hidden = shared; $("roomOn").hidden = $("leaveBtn").hidden = !shared;
+  // Keyboard: when the card appears, start on its main button
+  const act = document.activeElement;
+  if ((fresh || wasHidden) && !$("sheet").hidden && !btn.disabled && (!act || act === document.body) && !matchMedia("(pointer:coarse)").matches) btn.focus();
 }
 function renderControls(){
   const playing = isPlaying(), inp = $("guess"), lobby = inLobby();
@@ -813,7 +938,7 @@ function tick(){
   const p = phase(); if (p !== lastPlaying) { lastPlaying = p; render(); }
   if (!announced && players.size > 1 && allDone()) { announced = true; render(); if (shared) sync(); }
 }
-$("viewBtn").onclick = () => { sheetHidden = true; render(); };
+$("viewBtn").onclick = () => { sheetHidden = true; render(); $("list").focus(); };
 $("sheetBtn").onclick = () => { sheetHidden = false; render(); };
 // Give up takes two taps, so a stray tap can't end your game
 let giveUpT = null;
@@ -905,7 +1030,8 @@ function applyState(d){
   if (newRound !== round) {
     round = newRound; found.clear(); players.clear(); unsubs.forEach(u => u()); unsubs = [];
     myJoined = null; myDone = null; announced = false; ready = false; joinedRound = null;
-    guestOwner = {}; firstSeen.clear(); sheetHidden = false; tabRace = tabOver = null; smallOpen = false;
+    guestOwner = {}; sheetHidden = false; tabRace = null; listSig = "";
+    sel = null; rvFilter = "all"; rvRegion = "all"; rvQuery = ""; $("rvSearch").value = ""; $("rvRegion").value = "all";
     if (shared && round != null) { enterRound(round); setTimeout(() => onRoomPeers(room.peers()), 0); }
     else if (round != null) players.set(me, {joinedAt: Date.now(), count: 0, doneAt: null});
   }
