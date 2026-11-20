@@ -1,0 +1,818 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Country Race</title>
+<meta name="description" content="A live two-player race to name every country in the world.">
+<style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: one column; control bar, then a big pannable map, then continent tallies.
+   One calm light look on purpose (white, soft green, gray, pale blue), the same in every viewer theme. */
+:root{
+  color-scheme:light;
+  --bg:#f6f8f9; --panel:#ffffff; --fg:#24323a; --muted:#74848d; --line:#e2e8eb;
+  --ocean:#dceaf4; --land:#ffffff; --border:#cbd5db; --pin:#b4c0c7;
+  --accent:#3f7fc8; --goodline:#5aae7b;
+  --miss:#c26571; --missland:#f5dfe2; --none:#d5dce0;
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --body:Inter,ui-sans-serif,system-ui,sans-serif;
+}
+body{background:var(--bg);color:var(--fg);font-family:var(--body)}
+[hidden]{display:none!important}
+.app{max-width:1200px;margin:0 auto;padding-block:20px 40px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:14px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(28px,4vw,40px);margin:0;letter-spacing:-.01em;text-wrap:balance}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+.guesswrap{position:relative;flex:1 1 260px;min-width:0}
+#guess{width:100%;box-sizing:border-box;font:500 18px var(--body);padding:12px 14px;border-radius:8px;border:2px solid var(--line);background:var(--bg);color:var(--fg)}
+#guess:focus{outline:none;border-color:var(--accent)}
+#guess.flash{border-color:var(--goodline)}
+#guess.pending{border-color:var(--goodline);border-style:dashed}
+.hint{position:absolute;right:10px;top:50%;transform:translateY(-50%);font:600 13px var(--body);padding:4px 9px;border-radius:999px;background:var(--line);color:var(--muted);pointer-events:none;white-space:nowrap;max-width:60%;overflow:hidden;text-overflow:ellipsis}
+.hint.pending{background:#e3f3e9;color:#2f7a4c}
+#guess:disabled{opacity:.55}
+.stat{display:flex;flex-direction:column;align-items:flex-end;min-width:84px}
+.lbl{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.num{font:800 26px var(--display);font-variant-numeric:tabular-nums}
+button,select{flex:none;font:600 14px var(--body);border-radius:8px;padding:10px 14px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer;white-space:nowrap}
+.stat{flex:none}
+button.go{background:var(--accent);border-color:var(--accent);color:#fff}
+button:hover{filter:brightness(1.08)}
+button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.players{display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-height:30px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font-weight:600;font-size:13px}
+.dot{width:10px;height:10px;border-radius:50%;flex:none}
+.chip{font-size:14px;padding:6px 12px}
+.chip .cnt{font:800 16px var(--display);font-variant-numeric:tabular-nums;margin-left:2px}
+.chip.lead{border-color:var(--goodline);box-shadow:inset 0 0 0 1px var(--goodline)}
+.chip.ready{border-color:var(--goodline);box-shadow:inset 0 0 0 1px var(--goodline)}
+.chip.ready .tag{color:var(--goodline)}
+.count{position:absolute;inset:0;display:grid;place-items:center;font:800 clamp(72px,14vw,160px) var(--display);color:var(--fg);background:color-mix(in srgb,var(--ocean) 55%,transparent);pointer-events:none}
+.chip .tag{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.status{color:var(--muted);font-size:13px}
+.mapwrap{position:relative;background:var(--ocean);border-radius:12px;overflow:hidden;border:1px solid var(--line);touch-action:none}
+#map{display:block;width:100%;height:auto;cursor:grab}
+#map .land{fill:var(--land);stroke:var(--border);stroke-width:.6;vector-effect:non-scaling-stroke;transition:fill .25s}
+#map .land.other{fill:#f1f4f6}
+#map .land.missed{fill:var(--missland)}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;font-size:14px;font-weight:500}
+.legend .key{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.legend b{font:800 16px var(--display);font-variant-numeric:tabular-nums}
+.sw{width:14px;height:14px;border-radius:4px;flex:none;border:1px solid var(--line)}
+.swatches{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.swatch{width:26px;height:26px;padding:0;border-radius:50%;border:2px solid var(--panel);flex:none;cursor:pointer}
+.swatch.on{outline:2px solid var(--fg);outline-offset:2px}
+.swatch:disabled{opacity:.2;cursor:not-allowed}
+#map .pin{fill:var(--pin);stroke:var(--panel);vector-effect:non-scaling-stroke;stroke-width:1}
+#map .pin.missed{fill:var(--miss);stroke:var(--miss)}
+#map .mlabel{font-family:var(--body);font-weight:700;fill:var(--fg);stroke:var(--panel);paint-order:stroke;stroke-linejoin:round;pointer-events:none}
+#map .mlabel.missed{fill:var(--miss)}
+.zoomctl{position:absolute;right:10px;bottom:10px;display:flex;flex-direction:column;gap:6px}
+.zoomctl button{width:36px;height:36px;padding:0;font-size:18px;background:var(--panel)}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20}
+#toast.on{opacity:1}
+.continents{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px 28px;padding-top:6px}
+.cont{border-top:1px solid var(--line);padding-top:10px;min-width:0}
+.cont h2{font:700 16px var(--display);margin:0 0 8px;display:flex;justify-content:space-between;gap:8px}
+.cont h2 span{font:600 13px var(--body);color:var(--muted);font-variant-numeric:tabular-nums}
+.names{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:13px}
+.names .n{display:inline-flex;align-items:center;gap:5px}
+.names .n.missed{color:var(--miss)}
+.empty{color:var(--muted);font-size:13px}
+.room{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:14px}
+.room b{font:800 18px var(--display);letter-spacing:.08em}
+#code{width:7.5em;font:600 14px var(--body);padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--fg);text-transform:uppercase}
+#code:focus{outline:none;border-color:var(--accent)}
+@media (prefers-reduced-motion: reduce){#toast,#map .land{transition:none}}
+</style>
+</head><body>
+
+<div class="app">
+  <header>
+    <h1>Country Race</h1>
+  </header>
+  <section class="bar">
+    <div class="guesswrap">
+      <input id="guess" placeholder="Type a country" autocomplete="off" autocapitalize="off" spellcheck="false" disabled>
+      <span class="hint" id="hint" hidden aria-live="polite"></span>
+    </div>
+    <div class="stat"><span class="lbl">Found</span><span class="num" id="score">0/197</span></div>
+    <div class="stat"><span class="lbl">Time</span><span class="num" id="clock">15:00</span></div>
+    <select id="dur" aria-label="Time limit">
+      <option value="600">10 min</option>
+      <option value="900" selected>15 min</option>
+      <option value="1200">20 min</option>
+      <option value="0">No limit</option>
+    </select>
+    <button id="startBtn" class="go">Start game</button>
+    <button id="giveUp" hidden>Give up</button>
+  </section>
+  <div class="room" id="room">
+    <span id="roomSolo" class="room">
+      <button id="hostBtn" type="button">Race a friend</button>
+      <input id="code" placeholder="Code" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Game code">
+      <button id="joinBtn" type="button">Join</button>
+    </span>
+    <span id="roomOn" class="room" hidden>
+      <span>Game code <b id="roomCode"></b></span>
+      <button id="copyBtn" type="button">Copy link</button>
+      <button id="leaveBtn" type="button">Leave</button>
+    </span>
+  </div>
+  <div class="players" id="players"></div>
+  <div class="swatches" id="colors" role="group" aria-label="Your color" hidden></div>
+  <div class="legend" id="legend" hidden></div>
+  <div class="status" id="status" hidden></div>
+  <div class="mapwrap">
+    <svg id="map" viewBox="0 0 960 470" role="img" aria-label="World map"></svg>
+    <div class="count" id="count" hidden aria-live="assertive"></div>
+    <div class="zoomctl">
+      <button id="zin" aria-label="Zoom in">+</button>
+      <button id="zout" aria-label="Zoom out">−</button>
+      <button id="zreset" aria-label="Reset zoom">⤢</button>
+    </div>
+  </div>
+  <section class="continents" id="continents"></section>
+</div>
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js" integrity="sha384-Ukv1p/xTma6P4/2bY5KzWBw+ydSpXmhCMtyciIQVDJ1RmOxtCYNMF1uXT9T63H67" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.5/peerjs.min.js" integrity="sha384-x0YgkOr/3UOZP2CRDxGW9e0Q+2Qjyr3uJrm4xU32Y7ZCNAo7Cc7bjhrZMi/dwczu" crossorigin="anonymous"></script>
+<script>
+// [map name, display name, ...extra accepted answers]
+const DATA = {
+  "Africa": [["Algeria"],["Angola"],["Benin"],["Botswana"],["Burkina Faso"],["Burundi"],["Cabo Verde","Cabo Verde","Cape Verde"],["Cameroon"],
+    ["Central African Rep.","Central African Republic","CAR"],["Chad"],["Comoros"],
+    ["Congo","Republic of the Congo","Congo","Congo Brazzaville","Republic of Congo","Congo Republic"],
+    ["Dem. Rep. Congo","DR Congo","Democratic Republic of the Congo","Democratic Republic of Congo","DRC","Congo Kinshasa","Zaire"],
+    ["Côte d'Ivoire","Ivory Coast","Cote d'Ivoire"],["Djibouti"],["Egypt"],["Eq. Guinea","Equatorial Guinea"],["Eritrea"],["eSwatini","Eswatini","Swaziland"],
+    ["Ethiopia"],["Gabon"],["Gambia"],["Ghana"],["Guinea"],["Guinea-Bissau","Guinea-Bissau","Guinea Bissau"],["Kenya"],["Lesotho"],["Liberia"],["Libya"],
+    ["Madagascar"],["Malawi"],["Mali"],["Mauritania"],["Mauritius"],["Morocco"],["Mozambique"],["Namibia"],["Niger"],["Nigeria"],["Rwanda"],
+    ["São Tomé and Principe","São Tomé and Príncipe","Sao Tome","Sao Tome and Principe"],["Senegal"],["Seychelles"],["Sierra Leone"],["Somalia"],
+    ["South Africa"],["S. Sudan","South Sudan"],["Sudan"],["Tanzania"],["Togo"],["Tunisia"],["Uganda"],["Zambia"],["Zimbabwe"]],
+  "Europe": [["Albania"],["Andorra"],["Austria"],["Belarus"],["Belgium"],["Bosnia and Herz.","Bosnia and Herzegovina","Bosnia","Bosnia Herzegovina"],["Bulgaria"],
+    ["Croatia"],["Cyprus"],["Czechia","Czechia","Czech Republic"],["Denmark"],["Estonia"],["Finland"],["France"],["Germany"],["Greece"],["Hungary"],["Iceland"],
+    ["Ireland"],["Italy"],["Kosovo"],["Latvia"],["Liechtenstein"],["Lithuania"],["Luxembourg"],["Malta"],["Moldova"],["Monaco"],["Montenegro"],
+    ["Netherlands","Netherlands","Holland"],["Macedonia","North Macedonia","Macedonia"],["Norway"],["Poland"],["Portugal"],["Romania"],["Russia","Russia","Russian Federation"],
+    ["San Marino"],["Serbia"],["Slovakia"],["Slovenia"],["Spain"],["Sweden"],["Switzerland"],["Ukraine"],
+    ["United Kingdom","United Kingdom","UK","Great Britain","Britain"],["Vatican","Vatican City","Holy See","Vatican"]],
+  "Asia": [["Afghanistan"],["Armenia"],["Azerbaijan"],["Bahrain"],["Bangladesh"],["Bhutan"],["Brunei"],["Cambodia"],["China"],["Georgia"],["India"],
+    ["Indonesia"],["Iran"],["Iraq"],["Israel"],["Japan"],["Jordan"],["Kazakhstan"],["Kuwait"],["Kyrgyzstan"],["Laos"],["Lebanon"],["Malaysia"],["Maldives"],
+    ["Mongolia"],["Myanmar","Myanmar","Burma"],["Nepal"],["North Korea","North Korea","DPRK"],["Oman"],["Pakistan"],["Palestine"],["Philippines"],["Qatar"],
+    ["Saudi Arabia"],["Singapore"],["South Korea","South Korea","Korea"],["Sri Lanka"],["Syria"],["Taiwan"],["Tajikistan"],["Thailand"],
+    ["Timor-Leste","Timor-Leste","East Timor","Timor Leste"],["Turkey","Turkey","Turkiye"],["Turkmenistan"],
+    ["United Arab Emirates","United Arab Emirates","UAE","Emirates"],["Uzbekistan"],["Vietnam","Vietnam","Viet Nam"],["Yemen"]],
+  "North America": [["Antigua and Barb.","Antigua and Barbuda","Antigua"],["Bahamas"],["Barbados"],["Belize"],["Canada"],["Costa Rica"],["Cuba"],["Dominica"],
+    ["Dominican Rep.","Dominican Republic"],["El Salvador","El Salvador","Salvador"],["Grenada"],["Guatemala"],["Haiti"],["Honduras"],["Jamaica"],["Mexico"],
+    ["Nicaragua"],["Panama"],["St. Kitts and Nevis","Saint Kitts and Nevis","Saint Kitts"],["Saint Lucia"],
+    ["St. Vin. and Gren.","Saint Vincent and the Grenadines","Saint Vincent and Grenadines","Saint Vincent"],["Trinidad and Tobago","Trinidad and Tobago","Trinidad"],
+    ["United States of America","United States","United States of America","USA","US","America"]],
+  "South America": [["Argentina"],["Bolivia"],["Brazil"],["Chile"],["Colombia"],["Ecuador"],["Guyana"],["Paraguay"],["Peru"],["Suriname"],["Uruguay"],["Venezuela"]],
+  "Oceania": [["Australia"],["Fiji"],["Kiribati"],["Marshall Is.","Marshall Islands"],["Micronesia","Micronesia","Federated States of Micronesia"],["Nauru"],
+    ["New Zealand"],["Palau"],["Papua New Guinea","Papua New Guinea","PNG"],["Samoa"],["Solomon Is.","Solomon Islands"],["Tonga"],["Tuvalu"],["Vanuatu"]]
+};
+// Extra map shapes that light up with a country
+const ATTACH = {"Somaliland":"Somalia","N. Cyprus":"Cyprus"};
+const MANUAL = {"Tuvalu":[179.2,-8.52]};
+
+const norm = s => s.normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase()
+  .replace(/&/g," and ").replace(/^\s*the\s+/,"").replace(/\bsaint\b/g,"st").replace(/[^a-z]/g,"");
+
+const LIST = []; const ANSWERS = new Map();
+for (const [cont, arr] of Object.entries(DATA)) for (const e of arr) {
+  const c = {i: LIST.length, key: e[0], name: e[1] || e[0], cont};
+  LIST.push(c);
+  for (const a of [e[0], ...e.slice(1)]) ANSWERS.set(norm(a), c.i);
+}
+const TOTAL = LIST.length; // 197
+const BYKEY = new Map(LIST.map(c => [c.key, c]));
+
+// ---- state
+let me = "local", shared = false, room = null;
+let round = null, startedAt = 0, duration = 900, endedAt = null;
+const found = new Map();   // my own guesses: index -> {by, at}
+const players = new Map(); // uid -> {joinedAt, count, doneAt}; counts are public, guesses are not
+let unsubs = [], myJoined = null, myDone = null, announced = false;
+// Lobby: both players press Ready; the host's page then starts the round for everyone.
+let ready = false, durAt = 0, startingFor = 0;
+const COUNTDOWN = 3000;
+function present(){
+  const list = [{uid: me, ready, round: round || 0, dur: +$("dur").value, durAt, color: myColor}];
+  if (!room?.peers) return list;
+  // One entry per player; if a player has the page open twice, their most recently updated tab counts
+  const byUid = new Map();
+  for (const p of room.peers()) {
+    if (p.kind !== "viewer") continue;
+    const pr = p.presence || {}, uid = p.by || pr.uid;
+    if (!uid || uid === me || typeof pr.round !== "number" && pr.round !== null) continue;
+    const prev = byUid.get(uid);
+    if (prev && prev.at >= (p.updatedAt || 0)) continue;
+    byUid.set(uid, {uid, ready: !!pr.ready, round: +pr.round || 0, dur: pr.dur, durAt: +pr.durAt || 0, color: PALETTE[pr.color] ? pr.color : null, at: p.updatedAt || 0});
+  }
+  return list.concat([...byUid.values()]);
+}
+// Time limit: whoever changed it last wins, so both lobbies show the same setting.
+function syncDur(){
+  let best = null; for (const p of present()) if (p.durAt && typeof p.dur === "number" && (!best || p.durAt > best.durAt)) best = p;
+  if (best && best.uid !== me && +$("dur").value !== best.dur && document.activeElement !== $("dur")) { $("dur").value = String(best.dur); durAt = best.durAt; }
+}
+function maybeStart(){
+  if (!shared || !room || !inLobby()) return;
+  const ps = present();
+  if (ps.length < 2 || !ps.every(p => p.ready)) return;
+  if (!isHost) return;                                         // the host's page starts it for both screens
+  const nr = Math.max(...ps.map(p => p.round)) + 1;
+  if (startingFor >= nr) return; startingFor = nr;
+  beginRound(nr);
+}
+function beginRound(nr){
+  const dur = +$("dur").value, st = {round: nr, startedAt: Date.now() + COUNTDOWN, duration: dur, endedAt: null};
+  if (shared) {
+    if (!isHost) return;
+    hostGame = st; hostDocs = {round: nr, players: {}}; saveHost();
+    send({t: "start", round: nr, delay: COUNTDOWN, duration: dur});
+  }
+  applyState(st);
+}
+
+const $ = id => document.getElementById(id);
+const toastEl = $("toast"); let toastT;
+function toast(msg){ toastEl.textContent = msg; toastEl.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(()=>toastEl.classList.remove("on"), 1800); }
+
+function playerOrder(){ return [...players.entries()].sort((a,b)=>a[1].joinedAt-b[1].joinedAt).map(x=>x[0]); }
+function countOf(uid){ return uid === me ? found.size : (players.get(uid)?.count || 0); }
+function timeUp(){ return round != null && !!duration && Date.now() >= startedAt + duration * 1000; }
+function allDone(){ if (round == null) return false; if (timeUp() || endedAt || Date.now() - startedAt > 2 * 3600e3) return true; return players.size > 0 && [...players.entries()].every(([id, p]) => id === me ? !!myDone : !!p.doneAt); }
+// Player colors: each player picks one in the lobby; two players can't hold the same one.
+// Soft colors that read on white land and under dark labels
+const PALETTE = {sage: "#86c79f", sky: "#86b7e6", peach: "#f2b791", lilac: "#bcaae6", mint: "#84cfc6", butter: "#ead27f", rose: "#eba7c0", slate: "#a3b3c4"};
+let myColor = "sage";
+try { const s = localStorage.getItem("country-race-color"); if (PALETTE[s]) myColor = s; } catch {}
+function colorKeyOf(uid){
+  if (uid === me) return myColor;
+  const c = present().find(p => p.uid === uid)?.color || players.get(uid)?.color;   // live choice first
+  return PALETTE[c] ? c : (myColor === "sky" ? "sage" : "sky");
+}
+function colorOf(uid){ return PALETTE[colorKeyOf(uid)]; }
+function takenColors(){ return new Set(present().filter(p => p.uid !== me).map(p => colorKeyOf(p.uid))); }
+// If the other player already holds my color, the player with the later id moves to the first free one.
+function resolveColorClash(){
+  for (const p of present()) {
+    if (p.uid !== me && colorKeyOf(p.uid) === myColor && me > p.uid) {
+      const taken = takenColors(); myColor = Object.keys(PALETTE).find(k => !taken.has(k)) || myColor;
+    }
+  }
+}
+function pickColor(k){
+  if (!PALETTE[k] || takenColors().has(k)) return;
+  myColor = k; try { localStorage.setItem("country-race-color", k); } catch {}
+  render(); if (shared) sync();
+}
+function nameOf(uid){ return uid === me ? "You" : "Friend"; }
+function counting(){ return round != null && !endedAt && !myDone && Date.now() < startedAt; }
+function inLobby(){ return round == null || allDone(); }
+function isPlaying(){ if (round == null || endedAt || myDone || Date.now() < startedAt) return false; return !duration || Date.now() < startedAt + duration * 1000; }
+function isOver(){ return round != null && !isPlaying() && !counting(); }
+
+// ---- map
+const svg = d3.select("#map");
+// Stripes of both players' colors for countries you both named
+const bothPat = svg.append("defs").append("pattern").attr("id", "bothPat").attr("patternUnits", "userSpaceOnUse")
+  .attr("width", 4).attr("height", 4).attr("patternTransform", "rotate(45)");
+const patA = bothPat.append("rect").attr("width", 2).attr("height", 4);
+const patB = bothPat.append("rect").attr("x", 2).attr("width", 2).attr("height", 4);
+const g = svg.append("g");
+let pins = new Map(), shapes = new Map(), labels = new Map(), zoom;
+// Labels sit at each country's visual center (the point deepest inside its main landmass)
+// and are sized to fit inside it, between 6px and 15px on screen at any zoom.
+// Bigger countries are placed first; a name that would overlap one already placed is hidden
+// until zooming in makes room for it.
+let curK = 1, layoutQueued = false;
+const measureCtx = document.createElement("canvas").getContext("2d");
+function textWidth1(s){ measureCtx.font = '700 100px Inter, ui-sans-serif, system-ui, sans-serif'; return measureCtx.measureText(s).width / 100 * 1.06; }
+function layoutLabels(k){
+  curK = k;
+  const placed = [], pad = 1.2 / k;
+  const hit = b => placed.some(p => b.x0 < p.x1 && b.x1 > p.x0 && b.y0 < p.y1 && b.y1 > p.y0);
+  const order = [...labels.values()].sort((a, b) => b.r - a.r);
+  for (const l of order) {
+    if (!l.on) { l.el.attr("display", "none"); continue; }
+    if (!l.w1) l.w1 = textWidth1(l.el.text());
+    const fit = Math.min(0.86 * l.span / l.w1, 1.15 * l.r);   // map units that fit inside the country
+    const px = Math.max(6, Math.min(15, fit * k)), fs = px / k;
+    const w = l.w1 * fs + 2 * pad, h = fs * 1.1 + 2 * pad, [cx, cy] = l.xy;
+    const b = {x0: cx - w / 2, x1: cx + w / 2, y0: cy - h / 2, y1: cy + h / 2};
+    if (hit(b)) { l.el.attr("display", "none"); continue; }
+    placed.push(b);
+    l.el.attr("display", null).style("font-size", fs + "px").style("stroke-width", (2.6 / k) + "px");
+  }
+}
+// Pole of inaccessibility (polylabel algorithm): the point inside a polygon farthest from its edges.
+function polylabel(rings, precision){
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const [x, y] of rings[0]) { if (x < minX) minX = x; if (y < minY) minY = y; if (x > maxX) maxX = x; if (y > maxY) maxY = y; }
+  const size = Math.min(maxX - minX, maxY - minY);
+  if (!(size > 0)) return {x: minX, y: minY, d: 0};
+  const dist = (x, y) => {
+    let inside = false, m = Infinity;
+    for (const ring of rings) for (let i = 0, n = ring.length, j = n - 1; i < n; j = i++) {
+      const [ax, ay] = ring[i], [bx, by] = ring[j];
+      if ((ay > y) !== (by > y) && x < (bx - ax) * (y - ay) / (by - ay) + ax) inside = !inside;
+      let dx = bx - ax, dy = by - ay, px = ax, py = ay;
+      if (dx || dy) { const t = ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy); if (t > 1) { px = bx; py = by; } else if (t > 0) { px += dx * t; py += dy * t; } }
+      const ex = x - px, ey = y - py; m = Math.min(m, ex * ex + ey * ey);
+    }
+    return (inside ? 1 : -1) * Math.sqrt(m);
+  };
+  const cell = (x, y, h) => { const d = dist(x, y); return {x, y, h, d, max: d + h * Math.SQRT2}; };
+  const q = []; const push = c => { let lo = 0, hi = q.length; while (lo < hi) { const mid = (lo + hi) >> 1; if (q[mid].max < c.max) lo = mid + 1; else hi = mid; } q.splice(lo, 0, c); };
+  let h = size / 2;
+  for (let x = minX; x < maxX; x += size) for (let y = minY; y < maxY; y += size) push(cell(x + h, y + h, h));
+  let best = cell((minX + maxX) / 2, (minY + maxY) / 2, 0);
+  while (q.length) {
+    const c = q.pop();
+    if (c.d > best.d) best = c;
+    if (c.max - best.d <= precision) continue;
+    h = c.h / 2;
+    push(cell(c.x - h, c.y - h, h)); push(cell(c.x + h, c.y - h, h)); push(cell(c.x - h, c.y + h, h)); push(cell(c.x + h, c.y + h, h));
+  }
+  best.dist = dist;
+  return best;
+}
+// Horizontal run of land through (x, y): where the row at height y enters and leaves the polygon around x.
+function rowSpan(rings, x, y){
+  const xs = [];
+  for (const ring of rings) for (let i = 0, n = ring.length, j = n - 1; i < n; j = i++) {
+    const [ax, ay] = ring[i], [bx, by] = ring[j];
+    if ((ay > y) !== (by > y)) xs.push(ax + (y - ay) * (bx - ax) / (by - ay));
+  }
+  xs.sort((a, b) => a - b);
+  for (let i = 0; i + 1 < xs.length; i += 2) if (xs[i] <= x && x <= xs[i + 1]) return [xs[i], xs[i + 1]];
+  return [x, x];
+}
+function queueLayout(k){ curK = k; if (layoutQueued) return; layoutQueued = true; requestAnimationFrame(() => { layoutQueued = false; layoutLabels(curK); }); }
+async function drawMap(){
+  const topo = await fetch("countries-50m.json").then(r => r.json());
+  const fc = topojson.feature(topo, topo.objects.countries);
+  const feats = fc.features.filter(f => f.properties.name !== "Antarctica");
+  const proj = d3.geoNaturalEarth1().fitExtent([[6,6],[954,464]], {type:"FeatureCollection", features: feats});
+  const path = d3.geoPath(proj);
+  for (const f of feats) {
+    const nm = f.properties.name, owner = BYKEY.get(nm) || BYKEY.get(ATTACH[nm]);
+    const el = g.append("path").attr("d", path(f)).attr("class", owner ? "land" : "land other");
+    if (owner) { const arr = shapes.get(owner.i) || []; arr.push(el); shapes.set(owner.i, arr); }
+    if (BYKEY.get(nm)) {
+      let geo = f.geometry, best = geo;
+      if (geo.type === "MultiPolygon") { let bestA = -1; for (const p of geo.coordinates) { const poly = {type:"Polygon", coordinates:p}; const a = d3.geoArea(poly); if (a > bestA) { bestA = a; best = poly; } } }
+      const rings = best.coordinates.map(r => r.map(p => proj(p)).filter(Boolean));
+      const pole = polylabel(rings, 0.25);
+      const c = BYKEY.get(nm);
+      if (pole.d > 0) {
+        // Center the name across the land at that height, if that spot still has vertical room
+        const [xl, xr] = rowSpan(rings, pole.x, pole.y), mx = (xl + xr) / 2, md = pole.dist(mx, pole.y);
+        if (md >= pole.d * 0.6) { c.xy = [mx, pole.y]; c.r = md; } else { c.xy = [pole.x, pole.y]; c.r = pole.d; }
+        const [sl, sr] = rowSpan(rings, c.xy[0], c.xy[1]);
+        c.span = Math.max(2 * c.r, 2 * Math.min(c.xy[0] - sl, sr - c.xy[0]));
+      } else { c.xy = proj(d3.geoCentroid(best)); c.r = 0.5; c.span = 1; }
+    }
+  }
+  for (const [k, ll] of Object.entries(MANUAL)) { BYKEY.get(k).xy = proj(ll); BYKEY.get(k).r = 0.3; BYKEY.get(k).span = 0.6; }
+  const pg = g.append("g");
+  for (const c of LIST) if (c.xy) pins.set(c.i, pg.append("circle").attr("cx", c.xy[0]).attr("cy", c.xy[1]).attr("r", 2.6).attr("class","pin"));
+  const lg = g.append("g");
+  for (const c of LIST) if (c.xy) labels.set(c.i, {r: c.r, span: c.span, xy: c.xy, on: false, el: lg.append("text").attr("class","mlabel").attr("x", c.xy[0]).attr("y", c.xy[1])
+    .attr("text-anchor","middle").attr("dy","0.35em").attr("display","none").text(c.name)});
+  layoutLabels(1);
+  document.fonts?.ready?.then(() => { labels.forEach(l => l.w1 = 0); queueLayout(curK); });
+  zoom = d3.zoom().scaleExtent([1, 16]).translateExtent([[0,0],[960,470]]).on("zoom", e => {
+    g.attr("transform", e.transform); pins.forEach(p => p.attr("r", 2.6 / Math.sqrt(e.transform.k))); queueLayout(e.transform.k);
+  });
+  svg.call(zoom);
+  $("zin").onclick = () => svg.transition().duration(250).call(zoom.scaleBy, 1.8);
+  $("zout").onclick = () => svg.transition().duration(250).call(zoom.scaleBy, 1/1.8);
+  $("zreset").onclick = () => svg.transition().duration(250).call(zoom.transform, d3.zoomIdentity);
+}
+
+// ---- render
+function render(){
+  const over = isOver();
+  $("score").textContent = `${found.size}/${TOTAL}`;
+  // Head-to-head: color each country by who named it, live. Their countries get a name label only once the game is over.
+  const oppId = round != null ? playerOrder().find(id => id !== me && players.get(id)?.got) : null;
+  const theirs = oppId ? new Set(players.get(oppId).got.map(Number)) : null;
+  const catOf = c => { const m = found.has(c.i), t = theirs.has(c.i); return m && t ? "both" : m ? "got" : t ? "them" : "none"; };
+  const tally = {got: 0, them: 0, both: 0, none: 0};
+  resolveColorClash();
+  const myFill = colorOf(me), oppFill = oppId ? colorOf(oppId) : null;
+  patA.attr("fill", myFill); patB.attr("fill", oppFill || myFill);
+  const fillFor = {got: myFill, them: oppFill, both: "url(#bothPat)", none: "var(--none)"};
+  const cssFor = {got: myFill, them: oppFill, both: `repeating-linear-gradient(45deg, ${myFill} 0 4px, ${oppFill} 4px 8px)`, none: "var(--none)"};
+  for (const c of LIST) {
+    const f = found.get(c.i), cat = theirs ? catOf(c) : null, missed = !theirs && over && !f;
+    if (cat) tally[cat]++;
+    const fill = cat ? (cat === "none" ? (over ? fillFor.none : null) : fillFor[cat]) : (f ? myFill : null);
+    (shapes.get(c.i) || []).forEach(el => {
+      el.style("fill", fill).classed("missed", missed);
+      el.select("title").remove(); if (f || over) el.append("title").text(c.name);
+    });
+    const p = pins.get(c.i); if (p) p.attr("display", f || over || (cat && cat !== "none") ? "none" : null);
+    const l = labels.get(c.i); if (l) { l.on = !!(f || over); l.el.classed("missed", missed); }
+  }
+  layoutLabels(curK);
+  // Legend for the reveal
+  const lg = $("legend"); lg.hidden = !theirs;
+  if (theirs) {
+    lg.textContent = "";
+    const keys = [["got", "You got"], ["them", `${nameOf(oppId)} got`], ["both", "Both got"]];
+    if (over) keys.push(["none", "Not got"]);
+    for (const [k, txt] of keys) {
+      const it = document.createElement("span"); it.className = "key";
+      const sw = document.createElement("span"); sw.className = "sw"; sw.style.background = cssFor[k];
+      const n = document.createElement("b"); n.textContent = tally[k];
+      it.append(sw, txt, n); lg.append(it);
+    }
+  }
+  // Color picker (lobby only); a color the other player holds is unavailable
+  const cp = $("colors"); cp.hidden = !inLobby(); cp.textContent = "";
+  if (inLobby()) {
+    const taken = takenColors();
+    for (const [k, v] of Object.entries(PALETTE)) {
+      const b = document.createElement("button"); b.type = "button"; b.className = "swatch" + (k === myColor ? " on" : "");
+      b.style.background = v; b.disabled = taken.has(k); b.setAttribute("aria-label", k + (k === myColor ? " (yours)" : taken.has(k) ? " (taken)" : ""));
+      b.setAttribute("aria-pressed", String(k === myColor)); b.onclick = () => pickColor(k);
+      cp.append(b);
+    }
+  }
+  // players
+  const pl = $("players"); pl.textContent = "";
+  if (shared && room && inLobby()) {
+    const ps = present();
+    for (const p of ps) {
+      const ch = document.createElement("span"); ch.className = "chip" + (p.ready ? " ready" : "");
+      const d = document.createElement("span"); d.className = "dot"; d.style.background = colorOf(p.uid);
+      const t = document.createElement("span"); t.className = "tag"; t.textContent = p.ready ? "Ready" : "Not ready";
+      ch.append(d, p.uid === me ? "You" : nameOf(p.uid));
+      if (round != null && (p.uid === me || players.has(p.uid))) { const c = document.createElement("span"); c.className = "cnt"; c.textContent = countOf(p.uid); ch.append(c); }
+      ch.append(t); pl.append(ch);
+    }
+    if (ps.length < 2) { const w = document.createElement("span"); w.className = "empty"; w.textContent = "Waiting for the other player to open the page"; pl.append(w); }
+    pushPresence();
+  } else {
+  const ids = playerOrder();
+  const top = Math.max(0, ...ids.map(countOf)), leaders = ids.filter(id => countOf(id) === top);
+  for (const uid of ids) {
+    const ch = document.createElement("span"); ch.className = "chip";
+    if (ids.length > 1 && top > 0 && leaders.length === 1 && leaders[0] === uid) ch.classList.add("lead");
+    const d = document.createElement("span"); d.className = "dot"; d.style.background = colorOf(uid);
+    const done = uid === me ? myDone : players.get(uid)?.doneAt;
+    const nm = shared ? (uid === me ? "You" : nameOf(uid)) : "You";
+    const cnt = document.createElement("span"); cnt.className = "cnt"; cnt.textContent = countOf(uid);
+    ch.append(d, nm, cnt);
+    if (done && !allDone()) { const t = document.createElement("span"); t.className = "tag"; t.textContent = "finished"; ch.append(t); }
+    pl.append(ch);
+  }
+  pushPresence();
+  }
+  // continents
+  const box = $("continents"); box.textContent = "";
+  for (const cont of Object.keys(DATA)) {
+    const cs = LIST.filter(c => c.cont === cont), got = cs.filter(c => found.has(c.i));
+    const card = document.createElement("div"); card.className = "cont";
+    const h = document.createElement("h2"); h.textContent = cont;
+    const s = document.createElement("span"); s.textContent = `${got.length} / ${cs.length}`; h.append(s);
+    const nm = document.createElement("div"); nm.className = "names";
+    const show = over ? cs : got;
+    if (!show.length) { const e = document.createElement("span"); e.className = "empty"; e.textContent = "None yet"; nm.append(e); }
+    for (const c of show) {
+      const f = found.get(c.i), n = document.createElement("span"); n.className = "n" + (f || theirs ? "" : " missed");
+      const d = document.createElement("span"); d.className = "dot";
+      d.style.background = theirs ? cssFor[catOf(c)] : f ? myFill : "var(--miss)";
+      n.append(d, c.name); nm.append(n);
+    }
+    card.append(h, nm); box.append(card);
+  }
+  renderControls();
+}
+function renderControls(){
+  const playing = isPlaying(), inp = $("guess"), lobby = inLobby(), btn = $("startBtn");
+  const versus = shared && room && present().length > 1;
+  inp.disabled = !playing; if (!playing) { clearTimeout(holdTimer); setHint(); }
+  inp.placeholder = playing ? "Type a country" : counting() ? "Get ready" : !lobby ? "Waiting for the other player to finish" : round == null ? "Ready up to play" : "Game over";
+  $("giveUp").hidden = !playing;
+  btn.hidden = !lobby;
+  const guestAlone = shared && !isHost && !versus;   // only the host's page can start a round
+  btn.textContent = guestAlone ? "Ready" : !versus ? (round == null ? "Start solo" : "Play again") : ready ? "Cancel" : "Ready";
+  btn.disabled = guestAlone;
+  $("roomSolo").hidden = shared || !lobby;
+  btn.classList.toggle("go", !(versus && ready));
+  $("dur").hidden = !lobby;
+  if (playing && document.activeElement !== inp && !matchMedia("(pointer:coarse)").matches) inp.focus();
+}
+let lastPlaying = null;
+function tick(){
+  let txt = "--:--";
+  // Once everyone has finished early, stop the clock at the last finish
+  const lastDone = Math.max(myDone || 0, ...[...players.values()].map(p => p.doneAt || 0));
+  const endRef = endedAt || (round != null && allDone() && !timeUp() && lastDone ? lastDone : null);
+  if (round != null) {
+    const endedAt = endRef;
+    if (!duration) { const el = Math.floor(((endedAt || Date.now()) - startedAt) / 1000); txt = `${Math.floor(el/60)}:${String(el%60).padStart(2,"0")}`; }
+    else { const left = Math.min(duration, Math.max(0, Math.ceil((startedAt + duration*1000 - (endedAt || Date.now())) / 1000))); txt = `${Math.floor(left/60)}:${String(left%60).padStart(2,"0")}`; }
+  }
+  if (round == null || (inLobby() && !counting())) { const d = +$("dur").value; if (round == null) txt = d ? `${d/60}:00` : "0:00"; }
+  $("clock").textContent = txt;
+  const cd = $("count"), cnt = counting();
+  cd.hidden = !cnt; if (cnt) cd.textContent = Math.ceil((startedAt - Date.now()) / 1000);
+  const p = isPlaying(); if (p !== lastPlaying) { const was = lastPlaying; lastPlaying = p; render(); if (was === true && !p && players.size < 2) toast(found.size === TOTAL ? "All 197 found" : `Game over: ${found.size} of ${TOTAL}`); }
+  if (!announced && players.size > 1 && allDone()) { announced = true; announceWinner(); render(); if (shared) sync(); }
+}
+function announceWinner(){
+  const ranked = playerOrder().map(id => [id, countOf(id)]).sort((a, b) => b[1] - a[1]);
+  const [[w, wc], [, rc]] = ranked;
+  showResult(wc === rc ? `Tie at ${wc}` : `${w === me ? "You win" : nameOf(w) + " wins"}, ${wc} to ${rc}`);
+}
+function showResult(msg){ toastEl.textContent = msg; toastEl.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(()=>toastEl.classList.remove("on"), 6000); }
+
+// ---- actions
+// Typing rules. The one promise: what you type is never wiped out while you might still be typing.
+// - A new country that can't be the start of any other answer counts the instant it's complete.
+// - A new country that is also the start of a longer answer ("niger" -> "nigeria", "dominica" ->
+//   "dominican republic", "uk" -> "ukraine") shows what it will count as; Enter takes it now,
+//   or it counts after a pause.
+// - A country you already have is ignored while it could still become one you don't have
+//   ("uk" after the UK, on the way to "ukraine"). Otherwise it's marked "Already found" and
+//   cleared only after a longer pause (or Enter).
+const ANSWER_KEYS = [...ANSWERS.keys()];
+const HOLD_MS = 1200, DUP_MS = 1600;
+const longerAnswers = n => ANSWER_KEYS.filter(k => k.length > n.length && k.startsWith(n)).map(k => ANSWERS.get(k));
+let holdTimer = null;
+function setHint(text, kind){
+  const h = $("hint"); h.hidden = !text; h.textContent = text || ""; h.className = "hint" + (kind ? " " + kind : "");
+  $("guess").classList.toggle("pending", kind === "pending");
+}
+function accept(i){
+  const inp = $("guess"); inp.value = ""; setHint();
+  found.set(i, {by: me, at: Date.now()}); render();
+  inp.classList.add("flash"); setTimeout(() => inp.classList.remove("flash"), 350);
+  if (found.size === TOTAL) finish(); else if (shared) sync();
+}
+function tryGuess(force){
+  clearTimeout(holdTimer);
+  const inp = $("guess"), n = norm(inp.value), i = ANSWERS.get(n);
+  if (!isPlaying() || i == null) { setHint(); return; }
+  const longer = longerAnswers(n);
+  if (!found.has(i)) {
+    // Wait only if it could still become another country you don't have, or a longer name for this one
+    if (force || !longer.some(j => j === i || !found.has(j))) return accept(i);
+    setHint(`${LIST[i].name} ↵`, "pending");
+    holdTimer = setTimeout(() => tryGuess(true), HOLD_MS);
+    return;
+  }
+  if (longer.some(j => !found.has(j))) { setHint(); return; }   // still on the way to something new
+  setHint("Already found", "dup");
+  const clear = () => { if (norm(inp.value) === n) { inp.value = ""; setHint(); } };
+  if (force) clear(); else holdTimer = setTimeout(clear, DUP_MS);
+}
+$("guess").addEventListener("input", () => tryGuess(false));
+$("guess").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); tryGuess(true); } });
+// Saves my guesses on this device (to restore them after a reload) and sends my player record to the host.
+function sync(){
+  if (!shared || round == null) return;
+  const r = round, obj = {};
+  found.forEach((v, k) => obj[k] = v.at);
+  store.set(`country-race-found-${code}-${r}`, obj);
+  const doc = {joinedAt: myJoined || Date.now(), count: found.size, doneAt: myDone || null, got: myGotList(), color: myColor};
+  if (isHost) hostPutPlayer(r, me, doc);
+  send({t: "player", round: r, uid: me, doc});
+}
+$("dur").addEventListener("change", () => { durAt = Date.now(); pushPresence(); tick(); });
+$("startBtn").onclick = () => {
+  if (shared && room && present().length > 1) { ready = !ready; render(); maybeStart(); return; }
+  beginRound(Math.max(...present().map(p => p.round)) + 1);
+};
+$("giveUp").onclick = finish;
+// Give up (or finding all 197) ends only your own game; the other player keeps going.
+function finish(){
+  myDone = Date.now();
+  if (shared) sync(); else { const p = players.get(me); if (p) p.doneAt = myDone; }
+  lastPlaying = null; tick(); render();
+}
+
+function applyState(d){
+  const newRound = d ? d.round : null;
+  // Keep the start time this page already has for the round (set from the live countdown on its own clock)
+  startedAt = (newRound === round && startedAt) ? startedAt : (d?.startedAt || 0);
+  duration = d?.duration ?? 900; endedAt = d?.endedAt || null;
+  if (newRound !== round) {
+    round = newRound; found.clear(); players.clear(); unsubs.forEach(u => u()); unsubs = [];
+    myJoined = null; myDone = null; announced = false; ready = false; joinedRound = null;
+    if (shared && round != null) { enterRound(round); setTimeout(() => onRoomPeers(room.peers()), 0); }
+    else if (round != null) players.set(me, {joinedAt: Date.now(), count: 0, doneAt: null});
+  }
+  lastPlaying = null; tick(); render();
+}
+let joinedRound = null;
+function enterRound(r){
+  // Restore my own guesses after a reload
+  const saved = store.get(`country-race-found-${code}-${r}`);
+  if (saved && typeof saved === "object") for (const [k, at] of Object.entries(saved)) if (LIST[+k]) found.set(+k, {by: me, at: +at || 0});
+  if (isHost) ingestPlayers(r, hostDocs.round === r ? hostDocs.players : {});
+  else send({t: "want"});   // the host answers with the full game
+  render();
+}
+// Player records for round r, from the host's copy (or the host itself).
+function ingestPlayers(r, docs){
+  if (r !== round || !docs || typeof docs !== "object") return;
+  for (const [uid, d] of Object.entries(docs)) {
+    if (!d || typeof d !== "object") continue;
+    const got = Array.isArray(d.got) ? d.got.map(Number).filter(i => LIST[i]).slice(0, TOTAL) : null;
+    if (uid === me && got) for (const i of got) if (!found.has(i)) found.set(i, {by: me, at: 0});
+    mergePlayer(uid, {joinedAt: +d.joinedAt || 0, count: +d.count || 0, doneAt: +d.doneAt || null, got, color: d.color});
+  }
+  const mineP = players.get(me);
+  if (mineP) { myJoined = myJoined || mineP.joinedAt; myDone = myDone || mineP.doneAt || null; }
+  if (joinedRound !== r) { joinedRound = r; if (!mineP) { myJoined = Date.now(); players.set(me, {joinedAt: myJoined, count: found.size, doneAt: null}); } sync(); }
+  lastPlaying = null; tick(); render();
+}
+// Scores only go up within a round and "finished" never undoes, so merging keeps the freshest view
+// whichever channel (live room or stored data) arrives first.
+function mergePlayer(uid, p){
+  const old = players.get(uid) || {};
+  players.set(uid, {joinedAt: old.joinedAt || p.joinedAt || Date.now(), count: Math.max(old.count || 0, p.count || 0), doneAt: old.doneAt || p.doneAt || null,
+    got: Array.isArray(p.got) && (!old.got || p.got.length >= old.got.length) ? p.got : (old.got || null),
+    color: PALETTE[p.color] ? p.color : (old.color || null)});
+}
+// Each player's countries are shared live so both maps color in as you go.
+function myGotList(){ return round != null ? [...found.keys()] : null; }
+// Live channel: each page broadcasts its own score as presence; everyone hears it instantly.
+let lastPresence = "";
+function pushPresence(){
+  if (!room || !shared) return;
+  const pr = {uid: me, round, count: found.size, done: myDone || null, joinedAt: myJoined, ready, dur: +$("dur").value, durAt, got: myGotList(), color: myColor};
+  const s = JSON.stringify(pr); if (s === lastPresence) return; lastPresence = s;
+  room.presence(pr).catch(() => {});
+}
+function onRoomPeers(peers){
+  let changed = false, newer = false;
+  for (const p of peers) {
+    if (p.isMe || p.kind !== "viewer") continue;
+    const pr = p.presence || {}, uid = p.by || pr.uid;
+    if (!uid || uid === me || typeof pr.round !== "number") continue;
+    if (round == null || pr.round > round) newer = true;
+    if (pr.round !== round) continue;
+    mergePlayer(uid, {joinedAt: pr.joinedAt, count: +pr.count || 0, doneAt: pr.done || null, got: Array.isArray(pr.got) ? pr.got.slice(0, TOTAL).map(Number) : null, color: pr.color}); changed = true;
+  }
+  if (newer && !isHost) send({t: "want"});
+  syncDur();
+  tick(); render(); maybeStart();
+}
+// ---- multiplayer: a direct link between the two browsers (WebRTC through PeerJS).
+// PeerJS's public broker is used only to find the other browser; game data goes browser to browser.
+// The host's page holds the game (round, start time, each player's record) and relays it to the guest.
+const ID_PREFIX = "country-race-game-", CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789", DROP_MS = 8000;
+let code = null, isHost = false, peer = null, conn = null, remote = null, lastHeard = 0, dialAt = 0, full = false;
+let hostGame = null, hostDocs = {round: null, players: {}};   // host only
+const store = {
+  get(k){ try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+const hostKey = c => "country-race-host-" + c;
+const cleanCode = s => String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+function newCode(){ const a = crypto.getRandomValues(new Uint8Array(5)); return [...a].map(x => CODE_CHARS[x % CODE_CHARS.length]).join(""); }
+function saveHost(){ if (isHost) store.set(hostKey(code), {game: hostGame, docs: hostDocs}); }
+function hostPutPlayer(r, uid, doc){ if (hostDocs.round !== r) return; hostDocs.players[uid] = doc; saveHost(); }
+function send(m){ if (conn?.open) try { conn.send(m); } catch {} }
+function sendState(){ send({t: "state", game: hostGame, now: Date.now(), round: hostDocs.round, players: hostDocs.players}); }
+
+function onMessage(m){
+  lastHeard = Date.now();
+  if (!m || typeof m !== "object") return;
+  switch (m.t) {
+    case "hello": if (remote && typeof m.uid === "string") { remote.uid = m.uid; render(); } break;
+    case "presence":
+      if (!remote || !m.pr || typeof m.pr !== "object") break;
+      if (!remote.uid && typeof m.pr.uid === "string") remote.uid = m.pr.uid;
+      remote.presence = m.pr; remote.at = Date.now(); onRoomPeers(room.peers()); break;
+    case "player":
+      if (isHost) { if (!remote?.uid) break; hostPutPlayer(m.round, remote.uid, m.doc); ingestPlayers(m.round, {[remote.uid]: m.doc}); }
+      else if (typeof m.uid === "string" && m.uid !== me) ingestPlayers(m.round, {[m.uid]: m.doc});
+      break;
+    case "want": if (isHost) sendState(); break;
+    case "start":
+      // The start signal carries a countdown length, not a clock time, so both screens count down together
+      if (isHost || typeof m.round !== "number" || m.round <= (round || 0)) break;
+      applyState({round: m.round, startedAt: Date.now() + Math.min(+m.delay || 0, 5000), duration: +m.duration || 0, endedAt: null});
+      break;
+    case "state": {
+      if (isHost) break;
+      // Times come from the host's clock; shift them onto this one
+      const g = m.game && typeof m.game.round === "number" ? {...m.game} : null, skew = Date.now() - (+m.now || Date.now());
+      if (g) { g.startedAt = (+g.startedAt || 0) + skew; g.endedAt = g.endedAt ? g.endedAt + skew : null; }
+      if ((g?.round ?? null) !== round || (g && (g.endedAt || null) !== endedAt)) applyState(g);
+      if (g && m.round === round) ingestPlayers(round, m.players);
+      break;
+    }
+    case "full": full = true; setStatus("This game already has two players."); try { conn?.close(); } catch {} break;
+  }
+}
+function attach(c, uid){
+  if (conn && conn !== c) try { conn.close(); } catch {}
+  conn = c; remote = {uid, presence: null, at: 0}; lastHeard = Date.now(); lastPresence = "";
+  const gone = () => { if (c === conn) dropped(); };
+  c.on("close", gone); c.on("error", gone);
+  setStatus("");
+}
+function dropped(){
+  const had = !!remote?.presence; conn = null; remote = null;
+  if (had) toast("The other player disconnected");
+  setStatus(isHost ? "The other player disconnected. They can rejoin with the same link." : "Lost the connection to the host. Reconnecting…");
+  onRoomPeers([]); render();
+  if (!isHost) { dialAt = 0; setTimeout(dial, 1500); }
+}
+function openHost(){
+  peer = new Peer(ID_PREFIX + code, {debug: 0});
+  peer.on("open", () => setStatus(""));
+  peer.on("connection", c => {
+    c.on("data", m => {
+      if (c === conn) return onMessage(m);
+      if (m?.t !== "hello" || typeof m.uid !== "string") return;
+      // One guest per game; the same player coming back (after a reload) replaces their old link
+      if (conn?.open && remote?.uid && remote.uid !== m.uid && Date.now() - lastHeard < DROP_MS) { c.send({t: "full"}); setTimeout(() => c.close(), 500); return; }
+      attach(c, m.uid);
+      send({t: "hello", uid: me}); sendState(); render();
+    });
+  });
+  peer.on("error", e => {
+    if (e.type === "unavailable-id") setStatus("Reconnecting to the game…");   // the old page's link is still closing
+    else if (e.type !== "peer-unavailable") setStatus("Can't reach the connection service. Retrying…");
+  });
+}
+function openGuest(){
+  peer = new Peer({debug: 0});
+  setStatus("Connecting to the host…");
+  peer.on("open", () => { dialAt = 0; dial(); });
+  peer.on("error", e => {
+    if (e.type === "peer-unavailable") setStatus("Waiting for the host. Check the code, or ask them to open the game.");
+    else setStatus("Can't reach the connection service. Retrying…");
+  });
+}
+function dial(){
+  if (full || conn?.open || !peer?.open || Date.now() - dialAt < 6000) return;
+  dialAt = Date.now();
+  const c = peer.connect(ID_PREFIX + code, {reliable: true});
+  c.on("open", () => { attach(c, null); c.send({t: "hello", uid: me}); render(); });
+  c.on("data", m => { if (c === conn) onMessage(m); });
+}
+// Every 2 seconds: keep the link alive, notice a silent drop, and reconnect what broke.
+function heartbeat(){
+  if (!peer || peer.destroyed) { peer = null; return isHost ? openHost() : openGuest(); }
+  if (peer.disconnected) { try { peer.reconnect(); } catch {} }
+  if (conn) {
+    if (conn.open) send({t: "ping"});
+    if (Date.now() - lastHeard > DROP_MS) { const c = conn; try { c.close(); } catch {} if (c === conn) dropped(); }
+  } else if (!isHost) dial();
+  if (!isHost && !conn && dialAt && Date.now() - dialAt > 5000 && !full && peer.open)
+    setStatus("Can't reach the host yet. Check the code, or ask them to open the game.");
+}
+
+// ---- boot
+function setStatus(msg){ const s = $("status"); s.textContent = msg || ""; s.hidden = !msg; }
+function setupRoom(){
+  const go = c => { location.href = location.pathname + "?join=" + c; };
+  $("hostBtn").onclick = () => { const c = newCode(); store.set(hostKey(c), {game: null, docs: {round: null, players: {}}}); go(c); };
+  $("joinBtn").onclick = () => { const c = cleanCode($("code").value); if (c.length < 4) { toast("Type the game code"); return; } go(c); };
+  $("code").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $("joinBtn").click(); } });
+  $("copyBtn").onclick = async () => {
+    const url = location.origin + location.pathname + "?join=" + code;
+    try { await navigator.clipboard.writeText(url); toast("Link copied"); } catch { prompt("Send this link to the other player", url); }
+  };
+  $("leaveBtn").onclick = () => { location.href = location.pathname; };
+  $("roomOn").hidden = !shared; $("roomSolo").hidden = shared;
+  if (shared) $("roomCode").textContent = code;
+}
+async function boot(){
+  try { await drawMap(); } catch { setStatus("The map didn't load. Reload the page."); }
+  const q = cleanCode(new URLSearchParams(location.search).get("join"));
+  if (q.length >= 4) {
+    code = q; shared = true; isHost = !!store.get(hostKey(code));
+    me = store.get("country-race-uid");
+    if (typeof me !== "string" || !me) { me = "p" + newCode() + newCode(); store.set("country-race-uid", me); }
+    room = {
+      peers: () => remote?.uid && remote.presence && conn?.open ? [{kind: "viewer", by: remote.uid, presence: remote.presence, updatedAt: remote.at}] : [],
+      presence: pr => { send({t: "presence", pr}); return Promise.resolve(); }
+    };
+  }
+  setupRoom();
+  render(); setInterval(tick, 250); tick();
+  if (!shared) return;
+  if (typeof Peer !== "function") { setStatus("Couldn't load the connection library. Reload the page."); return; }
+  if (isHost) { const s = store.get(hostKey(code)) || {}; hostGame = s.game || null; hostDocs = s.docs || {round: null, players: {}}; if (hostGame) applyState(hostGame); openHost(); }
+  else openGuest();
+  setInterval(heartbeat, 2000);
+  addEventListener("pagehide", () => { try { conn?.close(); peer?.destroy(); } catch {} });
+}
+boot();
+</script>
+
+</body></html>
