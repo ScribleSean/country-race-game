@@ -94,10 +94,23 @@ h1{font:800 22px var(--display);margin:0;letter-spacing:-.01em;white-space:nowra
 #map .land.other{fill:#f1f4f6}
 #map .land.missed{fill:var(--missland)}
 #map .pin{fill:var(--pin);stroke:var(--panel);vector-effect:non-scaling-stroke;stroke-width:1}
+/* small places: a ring until someone names it, then one solid player color */
+#map .mk{fill:rgba(255,255,255,.55);stroke:#6f7f88;stroke-width:1.3;vector-effect:non-scaling-stroke;transition:fill .25s}
+#map .mk.on{stroke:rgba(28,42,49,.6);stroke-width:1}
+#map .mk.missed{fill:var(--missland);stroke:var(--miss);stroke-width:2.2}
+.smallbtn{position:absolute;left:8px;top:8px;display:inline-flex;align-items:center;gap:6px;padding:5px 10px;font-size:12px;color:var(--fg);background:color-mix(in srgb,var(--panel) 88%,transparent);border-radius:999px;z-index:2}
+.ring{width:10px;height:10px;border-radius:50%;flex:none;display:inline-block;border:2px solid #6f7f88}
+.ring.miss{border-color:var(--miss)}
+.smallpop{position:absolute;left:8px;top:42px;z-index:2;max-width:calc(100% - 16px);max-height:calc(100% - 50px);overflow-y:auto;display:flex;flex-wrap:wrap;gap:4px;padding:8px;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 6px 20px rgba(36,50,58,.1)}
+.smallpop .lbl{flex:1 0 100%}
+.smallpop button{padding:5px 9px;font-size:12px;border-radius:999px;background:var(--bg)}
+.smallpop button b{font-variant-numeric:tabular-nums;margin-left:3px}
+.smallpop button.clear{color:var(--muted)}
+.names .n.sm .dot{background:transparent!important;box-shadow:inset 0 0 0 2px var(--miss)}
 #map .mlabel{font-family:var(--body);font-weight:700;fill:var(--fg);stroke:var(--panel);paint-order:stroke;stroke-linejoin:round;pointer-events:none}
 #map .mlabel.missed{fill:var(--miss)}
 .count{position:absolute;inset:0;display:grid;place-items:center;font:800 clamp(56px,14vw,160px) var(--display);color:var(--fg);background:color-mix(in srgb,var(--ocean) 55%,transparent);pointer-events:none}
-.zoomctl{position:absolute;right:8px;bottom:8px;display:flex;gap:4px}
+.zoomctl{position:absolute;right:8px;bottom:8px;display:flex;gap:4px;z-index:3}
 .zoomctl button{width:32px;height:32px;padding:0;font-size:16px}
 
 /* lobby and results card */
@@ -169,7 +182,7 @@ details.setup[open] summary{margin-bottom:10px}
   .clock{font-size:28px}
 }
 @media (prefers-reduced-motion: reduce){
-  #toast,#map .land,.share i{transition:none}
+  #toast,#map .land,#map .mk,.share i{transition:none}
   .names .n.new{animation:none}
 }
 </style>
@@ -201,6 +214,8 @@ details.setup[open] summary{margin-bottom:10px}
     </aside>
     <div class="mapwrap">
       <svg id="map" viewBox="0 0 960 470" role="img" aria-label="World map"></svg>
+      <button class="smallbtn" id="smallBtn" type="button" aria-expanded="false" aria-controls="smallPop" hidden></button>
+      <div class="smallpop" id="smallPop" hidden></div>
       <div class="count" id="count" hidden aria-live="assertive"></div>
       <div class="zoomctl">
         <button id="zin" type="button" aria-label="Zoom in">+</button>
@@ -290,7 +305,7 @@ const DATA = {
 };
 // Extra map shapes that light up with a country
 const ATTACH = {"Somaliland":"Somalia","N. Cyprus":"Cyprus"};
-const MANUAL = {"Tuvalu":[179.2,-8.52]};
+const MANUAL = {"Tuvalu":[179.2,-8.52],"Kiribati":[173.0,1.4]};   // Kiribati: marked at Tarawa, with the other Pacific islands
 
 const norm = s => s.normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase()
   .replace(/&/g," and ").replace(/^\s*the\s+/,"").replace(/\bsaint\b/g,"st").replace(/[^a-z]/g,"");
@@ -407,6 +422,25 @@ function isOver(){ return round != null && !isPlaying() && !counting(); }
 const svg = d3.select("#map");
 const g = svg.append("g");
 let pins = new Map(), shapes = new Map(), labels = new Map(), zoom;
+// Small places: countries whose shape is too small to see on the map (microstates and small islands).
+// Worked out from each shape's drawn area, in map units: the whole country, or its biggest island.
+// Each gets a ring marker that fills in like a country, so it isn't forgotten.
+const SMALL = new Set(), markers = new Map(), SMALL_AREA = 10, SMALL_ISLAND = 6;
+let mkR = 4, zoomRegion = () => {};
+// Where the small places cluster, as [name, west, east, south, north]; anything else goes by continent
+const REGIONS = [["Caribbean", -92, -58, 8, 28], ["Europe", -12, 30, 35, 62], ["Middle East", 30, 60, 12, 40], ["Indian Ocean", 40, 80, -25, 10], ["West Africa", -30, 12, -5, 20]];
+function regionOf(c){
+  const [lon, lat] = c.ll || [0, 0];
+  if ((lon >= 130 || lon <= -150) && lat >= -30 && lat <= 25) return "Pacific";
+  return REGIONS.find(r => lon >= r[1] && lon <= r[2] && lat >= r[3] && lat <= r[4])?.[0] || c.cont;
+}
+// Markers keep about the same size on screen whatever the map's size, and grow only a little as you zoom in
+function sizeMarkers(){
+  const box = svg.node().getBoundingClientRect(), s = Math.min(box.width / 960, box.height / 470);
+  if (!(s > 0)) return;
+  mkR = (s < 0.6 ? 3 : 4) / s / Math.pow(curK, 0.75);
+  markers.forEach(m => m.attr("r", mkR));
+}
 // Labels sit at each country's visual center (the point deepest inside its main landmass)
 // and are sized to fit inside it, between 6px and 15px on screen at any zoom.
 // Bigger countries are placed first; a name that would overlap one already placed is hidden
@@ -424,10 +458,11 @@ function layoutLabels(k){
     if (!l.w1) l.w1 = textWidth1(l.el.text());
     const fit = Math.min(0.86 * l.span / l.w1, 1.15 * l.r);   // map units that fit inside the country
     const px = Math.max(6, Math.min(15, fit * k)), fs = px / k;
-    const w = l.w1 * fs + 2 * pad, h = fs * 1.1 + 2 * pad, [cx, cy] = l.xy;
+    const w = l.w1 * fs + 2 * pad, h = fs * 1.1 + 2 * pad, cx = l.xy[0], cy = l.small ? l.xy[1] + mkR + fs * 0.75 : l.xy[1];   // a small place's name sits under its marker
     const b = {x0: cx - w / 2, x1: cx + w / 2, y0: cy - h / 2, y1: cy + h / 2};
     if (hit(b)) { l.el.attr("display", "none"); continue; }
     placed.push(b);
+    if (l.small) l.el.attr("y", cy);
     l.el.attr("display", null).style("font-size", fs + "px").style("stroke-width", (2.6 / k) + "px");
   }
 }
@@ -479,18 +514,19 @@ async function drawMap(){
   const topo = await fetch("countries-50m.json").then(r => r.json());
   const fc = topojson.feature(topo, topo.objects.countries);
   const feats = fc.features.filter(f => f.properties.name !== "Antarctica");
-  const proj = d3.geoNaturalEarth1().fitExtent([[6,6],[954,464]], {type:"FeatureCollection", features: feats});
+  const proj = d3.geoNaturalEarth1().rotate([-11, 0]).fitExtent([[6,6],[954,464]], {type:"FeatureCollection", features: feats});
   const path = d3.geoPath(proj);
   for (const f of feats) {
     const nm = f.properties.name, owner = BYKEY.get(nm) || BYKEY.get(ATTACH[nm]);
     const el = g.append("path").attr("d", path(f)).attr("class", owner ? "land" : "land other");
-    if (owner) { const arr = shapes.get(owner.i) || []; arr.push(el); shapes.set(owner.i, arr); }
+    if (owner) { const arr = shapes.get(owner.i) || []; arr.push(el); shapes.set(owner.i, arr); owner.area = (owner.area || 0) + path.area(f); }
     if (BYKEY.get(nm)) {
       let geo = f.geometry, best = geo;
       if (geo.type === "MultiPolygon") { let bestA = -1; for (const p of geo.coordinates) { const poly = {type:"Polygon", coordinates:p}; const a = d3.geoArea(poly); if (a > bestA) { bestA = a; best = poly; } } }
       const rings = best.coordinates.map(r => r.map(p => proj(p)).filter(Boolean));
       const pole = polylabel(rings, 0.25);
       const c = BYKEY.get(nm);
+      c.ll = d3.geoCentroid(best); c.big = path.area(best);
       if (pole.d > 0) {
         // Center the name across the land at that height, if that spot still has vertical room
         const [xl, xr] = rowSpan(rings, pole.x, pole.y), mx = (xl + xr) / 2, md = pole.dist(mx, pole.y);
@@ -500,22 +536,39 @@ async function drawMap(){
       } else { c.xy = proj(d3.geoCentroid(best)); c.r = 0.5; c.span = 1; }
     }
   }
-  for (const [k, ll] of Object.entries(MANUAL)) { BYKEY.get(k).xy = proj(ll); BYKEY.get(k).r = 0.3; BYKEY.get(k).span = 0.6; }
+  for (const [k, ll] of Object.entries(MANUAL)) { BYKEY.get(k).xy = proj(ll); BYKEY.get(k).r = 0.3; BYKEY.get(k).span = 0.6; BYKEY.get(k).ll = ll; }
+  for (const c of LIST) if (c.xy && ((c.area || 0) < SMALL_AREA || (c.big || 0) < SMALL_ISLAND)) SMALL.add(c.i);
   const pg = g.append("g");
-  for (const c of LIST) if (c.xy) pins.set(c.i, pg.append("circle").attr("cx", c.xy[0]).attr("cy", c.xy[1]).attr("r", 2.6).attr("class","pin"));
+  for (const c of LIST) if (SMALL.has(c.i)) markers.set(c.i, pg.append("circle").attr("cx", c.xy[0]).attr("cy", c.xy[1]).attr("r", mkR).attr("class", "mk"));
+  for (const c of LIST) if (c.xy && !SMALL.has(c.i)) pins.set(c.i, pg.append("circle").attr("cx", c.xy[0]).attr("cy", c.xy[1]).attr("r", 2.6).attr("class","pin"));
   const lg = g.append("g");
-  for (const c of LIST) if (c.xy) labels.set(c.i, {r: c.r, span: c.span, xy: c.xy, on: false, el: lg.append("text").attr("class","mlabel").attr("x", c.xy[0]).attr("y", c.xy[1])
+  for (const c of LIST) if (c.xy) labels.set(c.i, {r: c.r, span: c.span, xy: c.xy, on: false, small: SMALL.has(c.i), el: lg.append("text").attr("class","mlabel").attr("x", c.xy[0]).attr("y", c.xy[1])
     .attr("text-anchor","middle").attr("dy","0.35em").attr("display","none").text(c.name)});
   layoutLabels(1);
   document.fonts?.ready?.then(() => { labels.forEach(l => l.w1 = 0); queueLayout(curK); });
   zoom = d3.zoom().scaleExtent([1, 16]).translateExtent([[0,0],[960,470]]).on("zoom", e => {
-    g.attr("transform", e.transform); pins.forEach(p => p.attr("r", 2.6 / Math.sqrt(e.transform.k))); queueLayout(e.transform.k);
+    g.attr("transform", e.transform); pins.forEach(p => p.attr("r", 2.6 / Math.sqrt(e.transform.k))); curK = e.transform.k; sizeMarkers(); queueLayout(e.transform.k);
   });
   svg.call(zoom);
   const ZOOM_MS = matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 250;
   $("zin").onclick = () => svg.transition().duration(ZOOM_MS).call(zoom.scaleBy, 1.8);
   $("zout").onclick = () => svg.transition().duration(ZOOM_MS).call(zoom.scaleBy, 1/1.8);
   $("zreset").onclick = () => svg.transition().duration(ZOOM_MS).call(zoom.transform, d3.zoomIdentity);
+  // Zoom the map onto one cluster of small places (or back out to the whole map)
+  zoomRegion = name => {
+    const pts = [...SMALL].map(i => LIST[i]).filter(c => regionOf(c) === name).map(c => c.xy);
+    let t = d3.zoomIdentity;
+    if (pts.length) {
+      const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]), pad = 14;
+      const x0 = Math.min(...xs) - pad, x1 = Math.max(...xs) + pad, y0 = Math.min(...ys) - pad, y1 = Math.max(...ys) + pad;
+      const k = Math.max(1, Math.min(12, 0.95 / Math.max((x1 - x0) / 960, (y1 - y0) / 470)));
+      const clamp = (v, lo) => Math.min(0, Math.max(lo, v));   // stay inside the map
+      t = d3.zoomIdentity.translate(clamp(480 - k * (x0 + x1) / 2, 960 - 960 * k), clamp(235 - k * (y0 + y1) / 2, 470 - 470 * k)).scale(k);
+    }
+    svg.transition().duration(ZOOM_MS).call(zoom.transform, t);
+  };
+  sizeMarkers();
+  if (window.ResizeObserver) new ResizeObserver(() => { sizeMarkers(); queueLayout(curK); }).observe(svg.node());
 }
 
 // ---- render
@@ -542,7 +595,7 @@ function render(){
   const theirs = oppId ? new Set(players.get(oppId).got.map(Number)) : null;
   const myFill = colorOf(me), oppFill = oppId ? colorOf(oppId) : null;
   const auth = shared ? ownerMap() : {};
-  const own = new Map(), tally = {me: 0, opp: 0, none: 0};
+  const own = new Map(), tally = {me: 0, opp: 0, none: 0, smallNone: 0};
   for (const c of LIST) {
     const mine = found.has(c.i), th = !!theirs?.has(c.i);
     let o = null;
@@ -551,7 +604,7 @@ function render(){
       const a = auth[c.i];
       o = a === me || (a === oppId && oppId) ? a : firstSeen.get(c.i);
       tally[o === me ? "me" : "opp"]++;
-    } else tally.none++;
+    } else { tally.none++; if (SMALL.has(c.i)) tally.smallNone++; }
     own.set(c.i, o);
     const missed = !theirs && over && !mine;
     const fill = o ? (o === me ? myFill : oppFill) : (over && theirs ? "var(--none)" : null);
@@ -560,6 +613,11 @@ function render(){
       s.select("title").remove(); if (mine || over) s.append("title").text(c.name);
     });
     const p = pins.get(c.i); if (p) p.attr("display", o || over ? "none" : null);
+    const mk = markers.get(c.i);
+    if (mk) {
+      mk.style("fill", o ? fill : null).classed("on", !!o).classed("missed", !o && (theirs ? ph === "done" : over));   // when the round is over, unfound small places stand out
+      mk.select("title").remove(); if (mine || over) mk.append("title").text(c.name);
+    }
     const l = labels.get(c.i); if (l) { l.on = !!(mine || over); l.el.classed("missed", missed); }
   }
   layoutLabels(curK);
@@ -567,9 +625,38 @@ function render(){
   renderBoard();
   renderList(over, oppId, theirs, own, fillOf, tally);
   renderSheet(ph, tally);
+  renderSmall(ph, over, theirs ? own : null);
   renderControls();
   pushPresence();
 }
+// Small places still to find: a quiet count on the map. Tapping it lists where they are (regions, never names,
+// so it's a hint and not the answer); tapping a region zooms the map there.
+let smallOpen = false;
+function renderSmall(ph, over, own){
+  const btn = $("smallBtn"), pop = $("smallPop"), show = round != null && SMALL.size > 0 && ph !== "count";
+  // While I play it counts the ones I still need; once a two-player round is over, the ones nobody found
+  const nobody = ph === "done" && !!own, isLeft = i => nobody ? !own.get(i) : !found.has(i);
+  btn.hidden = !show; if (!show) smallOpen = false;
+  pop.hidden = !show || !smallOpen; btn.setAttribute("aria-expanded", String(show && smallOpen));
+  if (!show) return;
+  const n = [...SMALL].filter(isLeft).length;
+  btn.textContent = ""; btn.append(el("i", "ring" + (over && n ? " miss" : "")), n ? `${n} small ${n === 1 ? "place" : "places"} ${nobody ? "nobody found" : over ? "missed" : "left"}` : "All small places found");
+  btn.dataset.left = n;
+  if (pop.hidden) return;
+  pop.textContent = ""; pop.append(el("span", "lbl", "Where they are"));
+  const by = new Map(); for (const i of SMALL) { const r = regionOf(LIST[i]), e = by.get(r) || [0, 0]; e[0]++; if (isLeft(i)) e[1]++; by.set(r, e); }
+  for (const [name, [, miss]] of [...by.entries()].sort((a, b) => b[1][0] - a[1][0])) {
+    const b = el("button", miss ? "" : "clear", name); b.type = "button"; b.dataset.region = name; b.append(el("b", null, miss ? String(miss) : "✓"));
+    b.setAttribute("aria-label", `${name}: ${miss} left. Zoom the map here.`);
+    b.onclick = () => { zoomRegion(name); smallOpen = false; render(); };
+    pop.append(b);
+  }
+  const all = el("button", "clear", "Whole map"); all.type = "button"; all.onclick = () => { zoomRegion(null); smallOpen = false; render(); }; pop.append(all);
+}
+$("smallBtn").onclick = () => { smallOpen = !smallOpen; render(); };
+const closeSmall = () => { if (smallOpen) { smallOpen = false; render(); } };
+addEventListener("keydown", e => { if (e.key === "Escape") closeSmall(); });
+addEventListener("pointerdown", e => { if (!e.target.closest?.("#smallBtn, #smallPop")) closeSmall(); });
 // Scoreboard: one chip per player in that player's color, with count, share of the world and the lead.
 function renderBoard(){
   const bd = $("board"), sh = $("share"); bd.textContent = "";
@@ -610,7 +697,7 @@ function renderList(over, oppId, theirs, own, fillOf, tally){
     b.onclick = () => { if (over) tabOver = k; else tabRace = k; render(); };
     tb.append(b);
   }
-  const item = (c, cls) => { const n = el("span", "n" + (cls ? " " + cls : "")); const d = el("i", "dot"); d.style.background = fillOf(own.get(c.i)); n.append(d, c.name); return n; };
+  const item = (c, cls) => { const n = el("span", "n" + (cls ? " " + cls : "") + (cls === "missed" && SMALL.has(c.i) ? " sm" : "")); const d = el("i", "dot"); d.style.background = fillOf(own.get(c.i)); n.append(d, c.name); return n; };
   const strip = $("conts"), box = $("list"); strip.hidden = tab !== "recent"; strip.textContent = ""; box.textContent = "";
   if (tab === "recent") {
     for (const cont of Object.keys(DATA)) {
@@ -666,6 +753,8 @@ function renderSheet(ph, tally){
     const left = duel ? tally.none : TOTAL - found.size;
     none.append(d, left ? `${duel ? "Nobody found" : "Missed"} ${left} ${left === 1 ? "country" : "countries"}. The lists are next to the map.` : "Every country was found.");
     rs.append(none);
+    const sm = duel ? tally.smallNone : [...SMALL].filter(i => !found.has(i)).length;
+    if (sm) { const row = el("div", "rnone"); row.id = "smallNote"; row.append(el("i", "ring miss"), `${sm} of them ${sm === 1 ? "is a small place" : "are small places"}, ringed on the map.`); rs.append(row); }
   }
   // who is here, in which color
   const pl = $("players"); pl.hidden = !shared; pl.textContent = "";
@@ -816,7 +905,7 @@ function applyState(d){
   if (newRound !== round) {
     round = newRound; found.clear(); players.clear(); unsubs.forEach(u => u()); unsubs = [];
     myJoined = null; myDone = null; announced = false; ready = false; joinedRound = null;
-    guestOwner = {}; firstSeen.clear(); sheetHidden = false; tabRace = tabOver = null;
+    guestOwner = {}; firstSeen.clear(); sheetHidden = false; tabRace = tabOver = null; smallOpen = false;
     if (shared && round != null) { enterRound(round); setTimeout(() => onRoomPeers(room.peers()), 0); }
     else if (round != null) players.set(me, {joinedAt: Date.now(), count: 0, doneAt: null});
   }
