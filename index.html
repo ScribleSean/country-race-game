@@ -427,13 +427,39 @@ let unsubs = [], myJoined = null, myDone = null, announced = false;
 let ready = false, durAt = 0, startingFor = 0;
 // Who named each country first. The host's page decides (in the order guesses reach it) and tells the guest,
 // so both screens say the same thing in the review.
-let guestOwner = {};
-function ownerMap(){ return isHost ? (hostDocs.owner || (hostDocs.owner = {})) : guestOwner; }
+// Anything keyed by a player id or a country number that came from the other browser lives in a table with no
+// prototype, and only ids of the expected shape get in.
+const table = () => Object.create(null);
+const okUid = u => typeof u === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(u) && !["__proto__", "constructor", "prototype"].includes(u);
+const okIdx = k => /^(0|[1-9]\d{0,2})$/.test(String(k)) && !!LIST[+k];
+function cleanOwner(o){
+  const out = table();
+  if (o && typeof o === "object") for (const k of Object.keys(o)) if (okIdx(k) && okUid(o[k])) out[k] = o[k];
+  return out;
+}
+function cleanFlow(f){
+  const out = table();
+  if (f && typeof f === "object") for (const uid of Object.keys(f)) {
+    const src = f[uid]; if (!okUid(uid) || !src || typeof src !== "object") continue;
+    const t = out[uid] = table();
+    for (const k of Object.keys(src)) { const v = +src[k]; if (okIdx(k) && Number.isFinite(v) && v >= 0) t[k] = v; }
+  }
+  return out;
+}
+function cleanPlayers(ps){
+  const out = table();
+  if (ps && typeof ps === "object") for (const uid of Object.keys(ps)) if (okUid(uid) && ps[uid] && typeof ps[uid] === "object") out[uid] = ps[uid];
+  return out;
+}
+// The host's saved game, read back from this device's storage
+function cleanDocs(d){ d = d && typeof d === "object" ? d : {}; return {round: typeof d.round === "number" ? d.round : null, players: cleanPlayers(d.players), owner: cleanOwner(d.owner), flow: cleanFlow(d.flow)}; }
+let guestOwner = table();
+function ownerMap(){ return isHost ? (hostDocs.owner || (hostDocs.owner = table())) : guestOwner; }
 // When each country was named, in seconds into the round, per player. The host's page stamps each find as it
 // arrives and tells the guest, so both screens draw the same game-flow chart.
-let guestFlow = {};
-function flowMap(){ return isHost ? (hostDocs.flow || (hostDocs.flow = {})) : guestFlow; }
-function setFlow(f){ guestFlow = f && typeof f === "object" ? f : {}; }
+let guestFlow = table();
+function flowMap(){ return isHost ? (hostDocs.flow || (hostDocs.flow = table())) : guestFlow; }
+function setFlow(f){ guestFlow = cleanFlow(f); }
 const cleanName = s => String(s ?? "").replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, 14);
 let myName = "";
 try { myName = cleanName(localStorage.getItem("country-race-name") || ""); } catch {}
@@ -446,7 +472,7 @@ function present(){
   for (const p of room.peers()) {
     if (p.kind !== "viewer") continue;
     const pr = p.presence || {}, uid = p.by || pr.uid;
-    if (!uid || uid === me || typeof pr.round !== "number" && pr.round !== null) continue;
+    if (!okUid(uid) || uid === me || typeof pr.round !== "number" && pr.round !== null) continue;
     const prev = byUid.get(uid);
     if (prev && prev.at >= (p.updatedAt || 0)) continue;
     byUid.set(uid, {uid, ready: !!pr.ready, round: +pr.round || 0, dur: pr.dur, durAt: +pr.durAt || 0, color: PALETTE[pr.color] ? pr.color : null, name: cleanName(pr.name), at: p.updatedAt || 0});
@@ -471,7 +497,7 @@ function beginRound(nr){
   const dur = +$("dur").value, st = {round: nr, startedAt: Date.now() + COUNTDOWN, duration: dur, endedAt: null};
   if (shared) {
     if (!isHost) return;
-    hostGame = st; hostDocs = {round: nr, players: {}, owner: {}, flow: {}}; saveHost();
+    hostGame = st; hostDocs = {round: nr, players: table(), owner: table(), flow: table()}; saveHost();
     send({t: "start", round: nr, delay: COUNTDOWN, duration: dur});
   }
   applyState(st);
@@ -956,8 +982,8 @@ const clockText = sec => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60))
 function flowSeries(){
   const out = {};
   for (const uid of [me, opponent()].filter(Boolean)) {
-    const src = flowMap()[uid] || (uid === me && !shared ? Object.fromEntries([...found].map(([i, f]) => [i, Math.max(0, Math.round((f.at - startedAt) / 100) / 10)])) : null);
-    out[uid] = src && typeof src === "object" ? Object.entries(src).filter(([i, t]) => Number.isInteger(+i) && LIST[+i] && Number.isFinite(+t) && +t >= 0).map(([, t]) => +t).sort((a, b) => a - b) : [];
+    const fl = flowMap(), src = (Object.hasOwn(fl, uid) ? fl[uid] : null) || (uid === me && !shared ? Object.fromEntries([...found].map(([i, f]) => [i, Math.max(0, Math.round((f.at - startedAt) / 100) / 10)])) : null);
+    out[uid] = src && typeof src === "object" ? Object.entries(src).filter(([i, t]) => okIdx(i) && Number.isFinite(+t) && +t >= 0).map(([, t]) => +t).sort((a, b) => a - b) : [];
   }
   return out;
 }
@@ -1228,7 +1254,7 @@ function applyState(d){
   if (newRound !== round) {
     round = newRound; found.clear(); players.clear(); unsubs.forEach(u => u()); unsubs = [];
     myJoined = null; myDone = null; announced = false; ready = false; joinedRound = null;
-    guestOwner = {}; guestFlow = {}; sheetHidden = false; tabRace = null; listSig = "";
+    guestOwner = table(); guestFlow = table(); sheetHidden = false; tabRace = null; listSig = "";
     sel = null; rvFilter = "all"; rvRegion = "all"; rvQuery = ""; $("rvSearch").value = ""; $("rvRegion").value = "all";
     if (shared && round != null) { enterRound(round); setTimeout(() => onRoomPeers(room.peers()), 0); }
     else if (round != null) players.set(me, {joinedAt: Date.now(), count: 0, doneAt: null});
@@ -1248,7 +1274,7 @@ function enterRound(r){
 function ingestPlayers(r, docs){
   if (r !== round || !docs || typeof docs !== "object") return;
   for (const [uid, d] of Object.entries(docs)) {
-    if (!d || typeof d !== "object") continue;
+    if (!okUid(uid) || !d || typeof d !== "object") continue;
     const got = Array.isArray(d.got) ? d.got.slice(0, TOTAL).map(Number).filter(i => LIST[i]) : null;
     if (uid === me && got) for (const i of got) if (!found.has(i)) found.set(i, {by: me, at: 0});
     mergePlayer(uid, {joinedAt: +d.joinedAt || 0, count: +d.count || 0, doneAt: +d.doneAt || null, got, color: d.color, name: d.name});
@@ -1281,10 +1307,10 @@ function onRoomPeers(peers){
   for (const p of peers) {
     if (p.isMe || p.kind !== "viewer") continue;
     const pr = p.presence || {}, uid = p.by || pr.uid;
-    if (!uid || uid === me || typeof pr.round !== "number") continue;
+    if (!okUid(uid) || uid === me || typeof pr.round !== "number") continue;
     if (round == null || pr.round > round) newer = true;
     if (pr.round !== round) continue;
-    mergePlayer(uid, {joinedAt: pr.joinedAt, count: +pr.count || 0, doneAt: pr.done || null, got: Array.isArray(pr.got) ? pr.got.slice(0, TOTAL).map(Number).filter(i => LIST[i]) : null, color: pr.color, name: pr.name}); changed = true;
+    mergePlayer(uid, {joinedAt: +pr.joinedAt || 0, count: +pr.count || 0, doneAt: pr.done || null, got: Array.isArray(pr.got) ? pr.got.slice(0, TOTAL).map(Number).filter(i => LIST[i]) : null, color: pr.color, name: pr.name}); changed = true;
   }
   if (newer && !isHost) send({t: "want"});
   syncDur();
@@ -1295,7 +1321,7 @@ function onRoomPeers(peers){
 // The host's page holds the game (round, start time, each player's record) and relays it to the guest.
 const ID_PREFIX = "country-race-game-", CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789", DROP_MS = 8000;
 let code = null, isHost = false, peer = null, conn = null, remote = null, lastHeard = 0, dialAt = 0, full = false;
-let hostGame = null, hostDocs = {round: null, players: {}};   // host only
+let hostGame = null, hostDocs = {round: null, players: table()};   // host only
 const store = {
   get(k){ try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
   set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
@@ -1305,35 +1331,35 @@ const cleanCode = s => String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "").s
 function newCode(){ const a = crypto.getRandomValues(new Uint8Array(5)); return [...a].map(x => CODE_CHARS[x % CODE_CHARS.length]).join(""); }
 function saveHost(){ if (isHost) store.set(hostKey(code), {game: hostGame, docs: hostDocs}); }
 function hostPutPlayer(r, uid, doc){
-  if (hostDocs.round !== r || !doc || typeof doc !== "object") return;
+  if (hostDocs.round !== r || !okUid(uid) || !doc || typeof doc !== "object") return;
   // Keep only the known fields of a record that came from the other browser
   const got = Array.isArray(doc.got) ? doc.got.slice(0, TOTAL).map(Number).filter(i => Number.isInteger(i) && LIST[i]) : null;
   hostDocs.players[uid] = {joinedAt: +doc.joinedAt || Date.now(), count: Math.min(TOTAL, Math.max(0, +doc.count || 0)), doneAt: +doc.doneAt || null, got, color: PALETTE[doc.color] ? doc.color : null, name: cleanName(doc.name)};
   // First to reach the host owns the country's color
   const own = ownerMap(); let changed = false;
-  for (const i of got || []) if (own[i] == null) { own[i] = uid; changed = true; }
+  for (const i of got || []) if (!Object.hasOwn(own, i)) { own[i] = uid; changed = true; }
   // Stamp each new find with the host's clock
-  const fl = flowMap(), times = fl[uid] && typeof fl[uid] === "object" ? fl[uid] : (fl[uid] = {});
+  const fl = flowMap(), times = Object.hasOwn(fl, uid) ? fl[uid] : (fl[uid] = table());
   const at = Math.max(0, Math.round((Date.now() - (hostGame?.startedAt || Date.now())) / 100) / 10), t = hostGame?.duration ? Math.min(at, hostGame.duration) : at;
-  for (const i of got || []) if (times[i] == null) { times[i] = t; changed = true; }
+  for (const i of got || []) if (!Object.hasOwn(times, i)) { times[i] = t; changed = true; }
   saveHost(); if (changed) send({t: "own", round: r, owner: own, flow: fl});
 }
-function setOwner(o){ guestOwner = o && typeof o === "object" ? o : {}; }
-function send(m){ if (conn?.open) try { conn.send(m); } catch {} }
+function setOwner(o){ guestOwner = cleanOwner(o); }
+function send(m){ if (conn?.open) try { conn.send(JSON.parse(JSON.stringify(m))); } catch {} }   // plain data on the wire
 function sendState(){ send({t: "state", game: hostGame, now: Date.now(), round: hostDocs.round, players: hostDocs.players, owner: ownerMap(), flow: flowMap()}); }
 
 function onMessage(m){
   lastHeard = Date.now();
   if (!m || typeof m !== "object") return;
   switch (m.t) {
-    case "hello": if (remote && typeof m.uid === "string") { remote.uid = m.uid; render(); } break;
+    case "hello": if (remote && okUid(m.uid)) { remote.uid = m.uid; render(); } break;
     case "presence":
       if (!remote || !m.pr || typeof m.pr !== "object") break;
-      if (!remote.uid && typeof m.pr.uid === "string") remote.uid = m.pr.uid;
+      if (!remote.uid && okUid(m.pr.uid)) remote.uid = m.pr.uid;
       remote.presence = m.pr; remote.at = Date.now(); onRoomPeers(room.peers()); break;
     case "player":
       if (isHost) { if (!remote?.uid) break; hostPutPlayer(m.round, remote.uid, m.doc); ingestPlayers(m.round, {[remote.uid]: m.doc}); }
-      else if (typeof m.uid === "string" && m.uid !== me) ingestPlayers(m.round, {[m.uid]: m.doc});
+      else if (okUid(m.uid) && m.uid !== me) ingestPlayers(m.round, {[m.uid]: m.doc});
       break;
     case "want": if (isHost) sendState(); break;
     case "own": if (!isHost && round != null && m.round === round) { setOwner(m.owner); if (m.flow) setFlow(m.flow); render(); } break;
@@ -1374,7 +1400,7 @@ function openHost(){
   peer.on("connection", c => {
     c.on("data", m => {
       if (c === conn) return onMessage(m);
-      if (m?.t !== "hello" || typeof m.uid !== "string") return;
+      if (m?.t !== "hello" || !okUid(m.uid)) return;
       // One guest per game; the same player coming back (after a reload) replaces their old link
       if (conn?.open && remote?.uid && remote.uid !== m.uid && Date.now() - lastHeard < DROP_MS) { c.send({t: "full"}); setTimeout(() => c.close(), 500); return; }
       attach(c, m.uid);
@@ -1437,7 +1463,7 @@ async function boot(){
   if (q.length >= 4) {
     code = q; shared = true; isHost = !!store.get(hostKey(code));
     me = store.get("country-race-uid");
-    if (typeof me !== "string" || !me) { me = "p" + newCode() + newCode(); store.set("country-race-uid", me); }
+    if (!okUid(me)) { me = "p" + newCode() + newCode(); store.set("country-race-uid", me); }
     room = {
       peers: () => remote?.uid && remote.presence && conn?.open ? [{kind: "viewer", by: remote.uid, presence: remote.presence, updatedAt: remote.at}] : [],
       presence: pr => { send({t: "presence", pr}); return Promise.resolve(); }
@@ -1447,7 +1473,7 @@ async function boot(){
   render(); setInterval(tick, 250); tick();
   if (!shared) return;
   if (typeof Peer !== "function") { setStatus("Couldn't load the connection library. Reload the page."); return; }
-  if (isHost) { const s = store.get(hostKey(code)) || {}; hostGame = s.game || null; hostDocs = s.docs || {round: null, players: {}}; if (hostGame) applyState(hostGame); openHost(); }
+  if (isHost) { const s = store.get(hostKey(code)) || {}; hostGame = s.game || null; hostDocs = cleanDocs(s.docs); if (hostGame) applyState(hostGame); openHost(); }
   else openGuest();
   setInterval(heartbeat, 2000);
   addEventListener("pagehide", () => { try { conn?.close(); peer?.destroy(); } catch {} });
