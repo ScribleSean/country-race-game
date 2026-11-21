@@ -34,13 +34,13 @@ button:focus-visible,select:focus-visible,input:focus-visible,.list:focus-visibl
 .sw{width:14px;height:14px;border-radius:4px;flex:none;display:inline-block;box-shadow:inset 0 0 0 1px rgba(16,24,32,.35)}
 button.link{border:0;background:none;padding:4px;color:var(--muted);font-weight:500;text-decoration:underline;align-self:center}
 .lbl{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
-.dot{width:10px;height:10px;border-radius:50%;flex:none;display:inline-block}
+.dot{width:10px;height:10px;border-radius:50%;flex:none;display:inline-block;box-shadow:inset 0 0 0 1px rgba(16,24,32,.35)}
 
 /* top: title, scoreboard, clock */
 .top{display:flex;align-items:center;gap:10px;min-height:44px;flex:none}
 h1{font:800 22px var(--display);margin:0;letter-spacing:-.01em;white-space:nowrap}
 .board{display:flex;gap:8px;flex:1;min-width:0}
-.pchip{display:flex;align-items:baseline;gap:6px;min-width:0;padding:5px 12px;border-radius:12px;background:var(--c);color:var(--t);font-weight:700;border:3px solid var(--c)}
+.pchip{display:flex;align-items:baseline;gap:6px;min-width:0;overflow:hidden;padding:5px 12px;border-radius:12px;background:var(--c);color:var(--t);font-weight:700;border:3px solid var(--c)}
 .pchip.lead{border-color:var(--ink);box-shadow:0 0 0 2px var(--panel) inset}
 .pname{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .pcount{font:800 22px/1 var(--display);font-variant-numeric:tabular-nums}
@@ -79,7 +79,7 @@ h1{font:800 22px var(--display);margin:0;letter-spacing:-.01em;white-space:nowra
 .app[data-phase="done"] .panelhead,.app[data-phase="wait"] .panelhead{display:none}
 .rvrow{display:flex;gap:6px}
 .rvrow input{flex:1 1 0;min-width:0;min-height:40px;font-size:16px;padding:6px 10px;border-radius:10px;border:1px solid var(--border);background:var(--panel);color:var(--fg)}
-.rvrow select{flex:0 1 46%;min-width:0;font-size:14px;padding:6px 8px}
+.rvrow select{flex:0 1 46%;min-width:0;font-size:16px;padding:6px 8px}
 .filters{display:flex;flex-wrap:wrap;gap:4px;padding:2px}
 .filters .tab{padding:5px 10px;border-color:var(--line)}
 .rv{display:flex;align-items:center;gap:8px;min-height:40px;padding:4px 8px;border-radius:8px;cursor:pointer;font-size:14px}
@@ -97,9 +97,7 @@ h1{font:800 22px var(--display);margin:0;letter-spacing:-.01em;white-space:nowra
 .cc .long{display:none}
 .list{flex:1;min-height:0;overflow-y:auto;padding:8px 10px;overscroll-behavior:contain}
 .names{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:14px}
-.dot{box-shadow:inset 0 0 0 1px rgba(16,24,32,.35)}
 .names .n{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
-.names .n.missed{color:var(--miss)}
 .names .n.new{animation:pop .9s ease-out}
 @keyframes pop{from{background:#cfeedd;box-shadow:0 0 0 4px #cfeedd}to{background:transparent;box-shadow:0 0 0 4px transparent}}
 .grp{padding:6px 0 8px;border-top:1px solid var(--line)}
@@ -143,7 +141,7 @@ h1{font:800 22px var(--display);margin:0;letter-spacing:-.01em;white-space:nowra
 .result{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .rstat:first-child:nth-last-child(2){grid-column:1/-1}
 .rstat{border-radius:12px;padding:10px 12px;background:var(--c);color:var(--t);min-width:0}
-.rstat .who{font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rstat .rwho{font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rstat .big{font:800 36px/1.05 var(--display);font-variant-numeric:tabular-nums}
 .rstat .small{font-size:12px}
 .rnone{grid-column:1/-1;color:var(--fg);font-size:14px;display:flex;align-items:center;gap:8px}
@@ -155,7 +153,7 @@ h1{font:800 22px var(--display);margin:0;letter-spacing:-.01em;white-space:nowra
 .prow .tag{margin-left:auto;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .prow.ready .tag{color:var(--good)}
 details.setup{border-top:1px solid var(--line);padding-top:10px}
-details.setup summary{cursor:pointer;font-weight:600;color:var(--muted);font-size:13px}
+details.setup summary{cursor:pointer;font-weight:600;color:var(--muted);font-size:14px;padding:11px 0}
 details.setup[open] summary{margin-bottom:10px}
 .fields{display:flex;flex-direction:column;gap:12px}
 .field{display:flex;flex-direction:column;gap:6px;min-width:0}
@@ -180,7 +178,7 @@ details.setup[open] summary{margin-bottom:10px}
 
 .app[data-phase="done"] .play,.app[data-phase="wait"] .play{display:none}
 @media (pointer:coarse){
-  button,select,.rv,.rvrow input{min-height:44px}
+  button,select,.rv,.rvrow input,.card input[type=text]{min-height:44px}
   .zoomctl button{width:44px;height:44px}
 }
 @media (max-width:899px){
@@ -459,8 +457,8 @@ function takenColors(){
 // If the host already holds my color, I (the guest) move to the first free one.
 function resolveColorClash(){
   if (!shared || isHost) return;
-  for (const p of present()) {
-    if (p.uid !== me && colorKeyOf(p.uid) === myColor) {
+  for (const uid of new Set([...present().map(p => p.uid), opponent()])) {
+    if (uid && uid !== me && colorKeyOf(uid) === myColor) {
       const taken = takenColors(); myColor = Object.keys(PALETTE).find(k => !taken.has(k)) || myColor;
     }
   }
@@ -478,7 +476,7 @@ function isOver(){ return round != null && !isPlaying() && !counting(); }
 
 // ---- map
 const svg = d3.select("#map");
-const g = svg.append("g");
+const g = svg.append("g"), landG = g.append("g");   // land first; pins, markers and names are drawn over it
 let pins = new Map(), shapes = new Map(), labels = new Map(), zoom;
 // Small places: countries whose shape is too small to see on the map (microstates and small islands).
 // Worked out from each shape's drawn area, in map units: the whole country, or its biggest island.
@@ -572,7 +570,7 @@ async function drawMap(){
   const path = d3.geoPath(proj);
   for (const f of feats) {
     const nm = f.properties.name, owner = BYKEY.get(nm) || BYKEY.get(ATTACH[nm]);
-    const el = g.append("path").attr("d", path(f)).attr("class", owner ? "land" : "land other");
+    const el = landG.append("path").attr("d", path(f)).attr("class", owner ? "land" : "land other");
     if (owner) el.on("click", () => pick(owner.i, "map"));
     if (owner) { const arr = shapes.get(owner.i) || []; arr.push(el); shapes.set(owner.i, arr); owner.area = (owner.area || 0) + path.area(f); }
     if (BYKEY.get(nm)) {
@@ -581,7 +579,8 @@ async function drawMap(){
       const rings = best.coordinates.map(r => r.map(p => proj(p)).filter(Boolean));
       const pole = polylabel(rings, 0.25);
       const c = BYKEY.get(nm);
-      c.ll = d3.geoCentroid(best); c.big = path.area(best);
+      c.big = path.area(best);
+      const xs = rings[0].map(p => p[0]), ys = rings[0].map(p => p[1]); c.box = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];   // main landmass
       if (pole.d > 0) {
         // Center the name across the land at that height, if that spot still has vertical room
         const [xl, xr] = rowSpan(rings, pole.x, pole.y), mx = (xl + xr) / 2, md = pole.dist(mx, pole.y);
@@ -591,7 +590,7 @@ async function drawMap(){
       } else { c.xy = proj(d3.geoCentroid(best)); c.r = 0.5; c.span = 1; }
     }
   }
-  for (const [k, ll] of Object.entries(MANUAL)) { BYKEY.get(k).xy = proj(ll); BYKEY.get(k).r = 0.3; BYKEY.get(k).span = 0.6; BYKEY.get(k).ll = ll; }
+  for (const [k, ll] of Object.entries(MANUAL)) { BYKEY.get(k).xy = proj(ll); BYKEY.get(k).r = 0.3; BYKEY.get(k).span = 0.6; }
   for (const c of LIST) if (c.xy && ((c.area || 0) < SMALL_AREA || (c.big || 0) < SMALL_ISLAND)) SMALL.add(c.i);
   const pg = g.append("g");
   for (const c of LIST) if (SMALL.has(c.i)) markers.set(c.i, pg.append("circle").attr("cx", c.xy[0]).attr("cy", c.xy[1]).attr("r", mkR).attr("class", "mk").on("click", () => pick(c.i, "map")));
@@ -613,7 +612,7 @@ async function drawMap(){
   zoomTo = i => {
     const c = LIST[i]; if (!c?.xy) return;
     let x0 = c.xy[0] - 6, x1 = c.xy[0] + 6, y0 = c.xy[1] - 6, y1 = c.xy[1] + 6;
-    if (!SMALL.has(i)) for (const sh of shapes.get(i) || []) { const b = sh.node().getBBox(); if (b.width > 600) continue; x0 = Math.min(x0, b.x); x1 = Math.max(x1, b.x + b.width); y0 = Math.min(y0, b.y); y1 = Math.max(y1, b.y + b.height); }
+    if (!SMALL.has(i) && c.box) { x0 = Math.min(x0, c.box[0]); y0 = Math.min(y0, c.box[1]); x1 = Math.max(x1, c.box[2]); y1 = Math.max(y1, c.box[3]); }
     const k = Math.max(1.5, Math.min(12, 0.4 / Math.max((x1 - x0) / 960, (y1 - y0) / 470)));
     const clamp = (v, lo) => Math.min(0, Math.max(lo, v));   // stay inside the map
     svg.transition().duration(ZOOM_MS).call(zoom.transform, d3.zoomIdentity.translate(clamp(480 - k * (x0 + x1) / 2, 960 - 960 * k), clamp(235 - k * (y0 + y1) / 2, 470 - 470 * k)).scale(k));
@@ -647,7 +646,7 @@ function opponent(){
   return ids.includes(live) ? live : ids.length ? ids[ids.length - 1] : null;
 }
 // Review of a finished round: which countries are listed, and the one picked on the map or in the list
-let rvFilter = "all", rvRegion = "all", rvQuery = "", sel = null;
+let rvFilter = "all", rvRegion = "all", rvQuery = "", sel = null, rvScope = "";
 const stateOf = new Map();   // country -> "me" | "opp" | "both" | "none", as last drawn
 let view = {};               // what the last draw worked out, for the list and the review
 function render(){
@@ -798,7 +797,8 @@ function renderReview(){
     btn.onclick = () => { rvFilter = k; render(); };
     fb.append(btn);
   }
-  const box = $("list"); box.textContent = ""; box.scrollTop = 0;
+  const box = $("list"), scope0 = [rvFilter, rvRegion, norm(rvQuery)].join("|"), keep = scope0 === rvScope ? box.scrollTop : 0; rvScope = scope0;
+  box.textContent = "";
   box.setAttribute("role", "listbox"); box.setAttribute("aria-label", `Countries, ${rows.length} shown`);
   if (sel != null && rows.some(c => c.i === sel)) box.setAttribute("aria-activedescendant", "rv-" + sel); else box.removeAttribute("aria-activedescendant");
   if (!rows.length) { box.append(el("span", "empty", "No countries match.")); return; }
@@ -811,6 +811,7 @@ function renderReview(){
     row.onclick = () => pick(c.i, "list");
     box.append(row);
   }
+  box.scrollTop = keep;
 }
 // Pick a country in the review: outline it on the map, show its name and its row
 function pick(i, from){
@@ -823,7 +824,7 @@ function pick(i, from){
   const row = $("rv-" + i);
   if (row) { row.setAttribute("aria-selected", "true"); box.setAttribute("aria-activedescendant", row.id); row.scrollIntoView({block: "nearest"}); }
   if (from !== "map") zoomTo(i);
-  announce(`${LIST[i].name}: ${statusText(i)}`);
+  if (from === "map") announce(`${LIST[i].name}: ${statusText(i)}`);   // the list reads its own rows
 }
 $("list").addEventListener("keydown", e => {
   if (!isOver()) return;
@@ -850,6 +851,7 @@ function renderSheet(ph, tally){
   if (ph !== "done") sheetHidden = false;
   const wasHidden = $("sheet").hidden;
   $("sheet").hidden = !open || sheetHidden; $("sheetBtn").hidden = !(ph === "done" && sheetHidden);
+  for (const e of document.querySelectorAll(".play, .panel, .mapwrap")) e.inert = !$("sheet").hidden;   // nothing behind the card takes focus
   if (!open) { lastSheetPhase = ph; return; }
   const ps = present(), versus = shared && room && ps.length > 1, opp = ps.find(p => p.uid !== me);
   const other = view.oppId, duel = ph === "done" && !!view.theirs;
@@ -870,7 +872,7 @@ function renderSheet(ph, tally){
   if (ph === "done") {
     for (const uid of (duel ? [me, other] : [me])) {
       const n = uid === me ? tally.me : tally.opp, st = el("div", "rstat"); st.style.setProperty("--c", colorOf(uid)); st.style.setProperty("--t", textOn(colorOf(uid))); st.dataset.uid = uid;
-      st.append(el("div", "who", uid === me ? "You" : nameOf(uid)), el("div", "big", n), el("div", "small", `${pct(n)} of the world`));
+      st.append(el("div", "rwho", uid === me ? "You" : nameOf(uid)), el("div", "big", n), el("div", "small", `${pct(n)} of the world`));
       if (duel) st.append(el("div", "small", `${n - tally.both} nobody else found`));
       rs.append(st);
     }
@@ -889,14 +891,17 @@ function renderSheet(ph, tally){
     if (ps.length < 2) pl.append(el("span", "empty", ph === "done" ? "The other player isn't connected." : "Waiting for the other player to join."));
   }
   // color picker: a color the other player holds can't be picked, and shows who holds it
-  const cp = $("colors"), taken = takenColors(), holder = opp?.uid || other; cp.textContent = "";
+  const cp = $("colors"), taken = takenColors(), holder = opp?.uid || other;
+  const focusKey = cp.contains(document.activeElement) ? document.activeElement.dataset.k : null;   // the swatches are rebuilt; keep keyboard focus
+  cp.textContent = "";
   for (const [k, v] of Object.entries(PALETTE)) {
     const mine = k === myColor, held = taken.has(k), cell = el("span", "swcell");
     const b = el("button", "swatch" + (mine ? " on" : "") + (held ? " taken" : "")); b.type = "button";
-    b.style.background = v; b.disabled = held; b.setAttribute("aria-label", k + (mine ? " (yours)" : held ? ` (taken by ${holder ? nameOf(holder) : "the other player"})` : ""));
+    b.style.background = v; b.disabled = held; b.dataset.k = k; b.setAttribute("aria-label", k + (mine ? " (yours)" : held ? ` (taken by ${holder ? nameOf(holder) : "the other player"})` : ""));
     b.setAttribute("aria-pressed", String(mine)); b.onclick = () => pickColor(k);
     cell.append(b, el("span", "swcap", mine ? "You" : held ? (holder ? nameOf(holder) : "Taken") : ""));
     cp.append(cell);
+    if (k === focusKey && !held) b.focus();
   }
   $("nameField").hidden = !shared;
   // buttons
