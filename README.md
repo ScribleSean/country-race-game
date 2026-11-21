@@ -12,7 +12,7 @@ Play: https://scriblesean.github.io/country-race-game/
 4. Type country names. A name counts as soon as it is complete. If it is also the start of a longer name (for example "Niger" and "Nigeria"), it counts after a short pause or when you press Enter.
 5. Press **Give up** twice to stop early. The game ends when time runs out or both players are done.
 6. Countries too small to see on the map (microstates and small islands) have a round marker that fills in like any other country. **Names** and **Markers** on the map turn the country names and those markers on or off; your choice is remembered. Pinch, scroll or use the + and − buttons to zoom.
-7. When the round ends you see the winner, then a review of every country: filter by who found it (all, mine, theirs, both, nobody), by region, or search. Pick a country in the list to see it on the map, or pick it on the map to see it in the list.
+7. When the round ends you see the winner and a game-flow chart: each player's count over time, who was ahead and by how much, and the final margin. Then comes a review of every country: filter by who found it (all, mine, theirs, both, nobody), by region, or search. Pick a country in the list to see it on the map, or pick it on the map to see it in the list.
 8. Press **Rematch** to play again with the same colors; the next round starts when both players have pressed it.
 
 You can also play alone: open the page and press **Play solo**.

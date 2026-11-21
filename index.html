@@ -172,6 +172,15 @@ h1{font-size:16px;font-weight:600;letter-spacing:-.3px;margin:0;white-space:nowr
 .splitkey{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 .splitkey span{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
 .splitkey b{font-weight:500;color:var(--text)}
+/* game flow: countries found over time, who was ahead, the final margin */
+.flow{grid-column:1/-1;display:flex;flex-direction:column;gap:8px;min-width:0}
+.flow svg{display:block;max-width:100%;height:auto;overflow:visible}
+.flow .fbase{stroke:var(--line);stroke-width:1}
+.flow .fline{fill:none;stroke-width:1.75;stroke-linejoin:round;stroke-linecap:round}
+.flow .fend{stroke:var(--raised);stroke-width:1.5}
+.flow .faxis{font-size:11px;fill:var(--faint);font-variant-numeric:tabular-nums}
+.flow .fmargin{font-size:12px;font-weight:600;fill:var(--muted);font-variant-numeric:tabular-nums}
+.flow .fsum{margin:0;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 .codebox{display:flex;align-items:center;gap:12px;background:var(--surface);border-radius:var(--r);padding:8px 8px 8px 14px}
 .codebox b{font-size:22px;line-height:1;font-weight:600;letter-spacing:.14em;flex:1;font-variant-numeric:tabular-nums}
 .who{display:flex;flex-direction:column;gap:8px}
@@ -420,6 +429,11 @@ let ready = false, durAt = 0, startingFor = 0;
 // so both screens say the same thing in the review.
 let guestOwner = {};
 function ownerMap(){ return isHost ? (hostDocs.owner || (hostDocs.owner = {})) : guestOwner; }
+// When each country was named, in seconds into the round, per player. The host's page stamps each find as it
+// arrives and tells the guest, so both screens draw the same game-flow chart.
+let guestFlow = {};
+function flowMap(){ return isHost ? (hostDocs.flow || (hostDocs.flow = {})) : guestFlow; }
+function setFlow(f){ guestFlow = f && typeof f === "object" ? f : {}; }
 const cleanName = s => String(s ?? "").replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, 14);
 let myName = "";
 try { myName = cleanName(localStorage.getItem("country-race-name") || ""); } catch {}
@@ -457,7 +471,7 @@ function beginRound(nr){
   const dur = +$("dur").value, st = {round: nr, startedAt: Date.now() + COUNTDOWN, duration: dur, endedAt: null};
   if (shared) {
     if (!isHost) return;
-    hostGame = st; hostDocs = {round: nr, players: {}, owner: {}}; saveHost();
+    hostGame = st; hostDocs = {round: nr, players: {}, owner: {}, flow: {}}; saveHost();
     send({t: "start", round: nr, delay: COUNTDOWN, duration: dur});
   }
   applyState(st);
@@ -934,6 +948,89 @@ for (const [id, key] of [["togNames", "country-race-show-names"], ["togMarkers",
 };
 $("togMore").onclick = () => { const open = $("maptog").classList.toggle("open"); $("togMore").setAttribute("aria-expanded", String(open)); };
 addEventListener("pointerdown", e => { if (!e.target.closest?.("#maptog, #togMore")) { $("maptog").classList.remove("open"); $("togMore").setAttribute("aria-expanded", "false"); } });
+// ---- game flow: how the round went, on the results card.
+// One line per player (countries found over time), under it the lead over time (who was ahead and by how much),
+// and the final margin at the end.
+const clockText = sec => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
+// Seconds into the round of each find, in order, per player
+function flowSeries(){
+  const out = {};
+  for (const uid of [me, opponent()].filter(Boolean)) {
+    const src = flowMap()[uid] || (uid === me && !shared ? Object.fromEntries([...found].map(([i, f]) => [i, Math.max(0, Math.round((f.at - startedAt) / 100) / 10)])) : null);
+    out[uid] = src && typeof src === "object" ? Object.entries(src).filter(([i, t]) => Number.isInteger(+i) && LIST[+i] && Number.isFinite(+t) && +t >= 0).map(([, t]) => +t).sort((a, b) => a - b) : [];
+  }
+  return out;
+}
+// The story of the round between two players: the margin after every find, how often the lead changed hands, and the biggest lead
+function flowStats(a, b){
+  const times = [...new Set([...a, ...b])].sort((x, y) => x - y), steps = [];
+  let i = 0, j = 0, lead = 0, changes = 0, big = {n: 0, sign: 0, t: 0};
+  for (const t of times) {
+    while (i < a.length && a[i] <= t) i++;
+    while (j < b.length && b[j] <= t) j++;
+    const d = i - j, sign = Math.sign(d);
+    if (sign && lead && sign !== lead) changes++;
+    if (sign) lead = sign;
+    if (Math.abs(d) > big.n) big = {n: Math.abs(d), sign, t};
+    steps.push({t, d});
+  }
+  return {steps, changes, big, margin: a.length - b.length};
+}
+function flowSummary(ids, series){
+  const a = series[ids[0]] || [], last = Math.max(0, ...Object.values(series).flat());
+  if (ids.length < 2) return a.length ? `${a.length} found in ${clockText(last)}` : "";
+  const st = flowStats(a, series[ids[1]] || []);
+  if (!st.steps.length) return "";
+  const who = sign => sign > 0 ? "You" : nameOf(ids[1]);
+  return `${st.changes === 0 ? "No lead changes" : st.changes === 1 ? "Lead changed once" : `Lead changed ${st.changes} times`}` + (st.big.n ? `. Biggest lead: ${who(st.big.sign)} +${st.big.n} at ${clockText(st.big.t)}` : "");
+}
+function renderFlow(box, ids){
+  const series = flowSeries(), all = ids.flatMap(uid => series[uid] || []);
+  if (!all.length) return;
+  // Each line ends on the score shown above it: a find the host never got to stamp counts at the last moment
+  const last = Math.max(...all);
+  for (const uid of ids) { const n = uid === me ? found.size : view.theirs ? view.theirs.size : series[uid].length; series[uid] = series[uid].slice(0, n); while (series[uid].length < n) series[uid].push(last); }
+  const NS = "http://www.w3.org/2000/svg", mk = (tag, attrs, text) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); if (text != null) e.textContent = text; return e; };
+  const duel = ids.length > 1, W = Math.max(240, Math.round(box.clientWidth) || 320), plotH = Math.max(64, Math.min(96, Math.round(W * 0.24))), top = 8, right = 36, stripH = duel ? 28 : 0, stripGap = duel ? 8 : 0;
+  const H = top + plotH + stripGap + stripH + 18, tMax = duration && last > duration - 30 ? duration : Math.max(30, Math.ceil(last / 30) * 30), yMax = Math.max(10, ...ids.map(uid => series[uid].length));
+  const x = t => Math.round(t / tMax * (W - right) * 10) / 10, y = n => Math.round((top + (1 - n / yMax) * plotH) * 10) / 10;
+  const summary = flowSummary(ids, series);
+  const wrap = el("div", "flow"), svg = mk("svg", {viewBox: `0 0 ${W} ${H}`, width: W, height: H, "aria-hidden": "true", focusable: "false"});
+  wrap.id = "flow"; wrap.dataset.w = W;
+  svg.append(mk("line", {class: "fbase", x1: 0, x2: W - right, y1: y(0) + .5, y2: y(0) + .5}));
+  // the trailing player's line first, so the leader's sits on top
+  const order = [...ids].sort((p, q) => series[p].length - series[q].length);
+  for (const uid of order) {
+    const ts = series[uid]; let d = `M0,${y(0)}`;
+    ts.forEach((t, k) => { d += `H${x(t)}V${y(k + 1)}`; });
+    d += `H${x(tMax)}`;
+    const path = mk("path", {class: "fline", d}); path.style.stroke = colorOf(uid); path.dataset.uid = uid; path.dataset.n = ts.length;
+    const end = mk("circle", {class: "fend", cx: x(tMax), cy: y(ts.length), r: 3}); end.style.fill = colorOf(uid);
+    svg.append(path, end);
+  }
+  if (duel) {
+    // who was ahead and by how much, moment by moment: above the middle line it's me, below it the other player
+    const st = flowStats(series[ids[0]], series[ids[1]]), mid = top + plotH + stripGap + stripH / 2, half = stripH / 2, ds = ["", ""];
+    st.steps.forEach((sp, k) => {
+      if (!sp.d) return;
+      const x0 = x(sp.t), x1 = x(k + 1 < st.steps.length ? st.steps[k + 1].t : tMax), yy = Math.round((mid - sp.d / st.big.n * half) * 10) / 10;
+      if (x1 > x0) ds[sp.d > 0 ? 0 : 1] += `M${x0},${mid}V${yy}H${x1}V${mid}Z`;
+    });
+    ds.forEach((d, k) => { if (d) { const a = mk("path", {class: "flead", d}); a.style.fill = colorOf(ids[k]); a.dataset.uid = ids[k]; svg.append(a); } });
+    svg.append(mk("line", {class: "fbase", x1: 0, x2: x(tMax), y1: mid, y2: mid}));
+    // the final margin, beside the winner's line
+    const lead = st.margin >= 0 ? ids[0] : ids[1], m = mk("text", {class: "fmargin", x: x(tMax) + 7, y: y(series[lead].length), dy: "0.35em"}, st.margin ? "+" + Math.abs(st.margin) : "Tie");
+    if (st.margin) m.style.fill = colorOf(lead);
+    svg.append(m); wrap.dataset.changes = st.changes; wrap.dataset.big = st.big.n;
+  }
+  const ty = H - 3;
+  svg.append(mk("text", {class: "faxis", x: 0, y: ty}, "0:00"), mk("text", {class: "faxis", x: x(tMax), y: ty, "text-anchor": "end"}, clockText(tMax)));
+  wrap.append(svg);
+  if (summary) wrap.append(el("p", "fsum", summary));
+  box.append(wrap);
+}
+let flowResizeT = null;
+addEventListener("resize", () => { clearTimeout(flowResizeT); flowResizeT = setTimeout(() => { const f = $("flow"); if (f && !$("sheet").hidden && Math.abs(+f.dataset.w - $("result").clientWidth) > 2) render(); }, 150); });
 // Lobby and results card
 function renderSheet(ph, tally){
   const open = ph === "home" || ph === "lobby" || ph === "done";
@@ -974,6 +1071,7 @@ function renderSheet(ph, tally){
       const k = el("span"), d = el("i", "sw"); d.style.background = color; k.append(d, text, el("b", null, n)); key.append(k);
     }
     split.append(bar, key); rs.append(split);
+    renderFlow(rs, duel ? [me, other] : [me]);
   }
   // who is here, in which color
   const pl = $("players"); pl.hidden = !shared; pl.textContent = "";
@@ -1130,7 +1228,7 @@ function applyState(d){
   if (newRound !== round) {
     round = newRound; found.clear(); players.clear(); unsubs.forEach(u => u()); unsubs = [];
     myJoined = null; myDone = null; announced = false; ready = false; joinedRound = null;
-    guestOwner = {}; sheetHidden = false; tabRace = null; listSig = "";
+    guestOwner = {}; guestFlow = {}; sheetHidden = false; tabRace = null; listSig = "";
     sel = null; rvFilter = "all"; rvRegion = "all"; rvQuery = ""; $("rvSearch").value = ""; $("rvRegion").value = "all";
     if (shared && round != null) { enterRound(round); setTimeout(() => onRoomPeers(room.peers()), 0); }
     else if (round != null) players.set(me, {joinedAt: Date.now(), count: 0, doneAt: null});
@@ -1214,11 +1312,15 @@ function hostPutPlayer(r, uid, doc){
   // First to reach the host owns the country's color
   const own = ownerMap(); let changed = false;
   for (const i of got || []) if (own[i] == null) { own[i] = uid; changed = true; }
-  saveHost(); if (changed) send({t: "own", round: r, owner: own});
+  // Stamp each new find with the host's clock
+  const fl = flowMap(), times = fl[uid] && typeof fl[uid] === "object" ? fl[uid] : (fl[uid] = {});
+  const at = Math.max(0, Math.round((Date.now() - (hostGame?.startedAt || Date.now())) / 100) / 10), t = hostGame?.duration ? Math.min(at, hostGame.duration) : at;
+  for (const i of got || []) if (times[i] == null) { times[i] = t; changed = true; }
+  saveHost(); if (changed) send({t: "own", round: r, owner: own, flow: fl});
 }
 function setOwner(o){ guestOwner = o && typeof o === "object" ? o : {}; }
 function send(m){ if (conn?.open) try { conn.send(m); } catch {} }
-function sendState(){ send({t: "state", game: hostGame, now: Date.now(), round: hostDocs.round, players: hostDocs.players, owner: ownerMap()}); }
+function sendState(){ send({t: "state", game: hostGame, now: Date.now(), round: hostDocs.round, players: hostDocs.players, owner: ownerMap(), flow: flowMap()}); }
 
 function onMessage(m){
   lastHeard = Date.now();
@@ -1234,7 +1336,7 @@ function onMessage(m){
       else if (typeof m.uid === "string" && m.uid !== me) ingestPlayers(m.round, {[m.uid]: m.doc});
       break;
     case "want": if (isHost) sendState(); break;
-    case "own": if (!isHost && round != null && m.round === round) { setOwner(m.owner); render(); } break;
+    case "own": if (!isHost && round != null && m.round === round) { setOwner(m.owner); if (m.flow) setFlow(m.flow); render(); } break;
     case "start":
       // The start signal carries a countdown length, not a clock time, so both screens count down together
       if (isHost || typeof m.round !== "number" || m.round <= (round || 0)) break;
@@ -1246,7 +1348,7 @@ function onMessage(m){
       const g = m.game && typeof m.game.round === "number" ? {...m.game} : null, skew = Date.now() - (+m.now || Date.now());
       if (g) { g.startedAt = (+g.startedAt || 0) + skew; g.endedAt = g.endedAt ? g.endedAt + skew : null; }
       if ((g?.round ?? null) !== round || (g && (g.endedAt || null) !== endedAt)) applyState(g);
-      if (g && m.round === round) { setOwner(m.owner); ingestPlayers(round, m.players); }
+      if (g && m.round === round) { setOwner(m.owner); if (m.flow) setFlow(m.flow); ingestPlayers(round, m.players); }
       break;
     }
     case "full": full = true; setStatus("This game already has two players."); try { conn?.close(); } catch {} break;
