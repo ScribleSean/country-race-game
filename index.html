@@ -497,62 +497,66 @@ function sizeMarkers(){
 }
 // Names: a name that fits inside its country sits at the country's visual center (the point deepest inside its
 // main landmass). A small place, an island or a country too small for its name gets the name next to its dot,
-// moved to the nearest free spot (with a thin line back to the dot) when that spot is taken. Text is never
+// moved to the nearest free spot (with a thin line back to the dot) when that spot is taken. A small place
+// I found always shows its name; other names that don't fit give way when the map is crowded. Text is never
 // smaller than 9px on screen, whatever the size of the map.
 let curK = 1, layoutQueued = false;
 const measureCtx = document.createElement("canvas").getContext("2d");
 function textWidth1(s){ measureCtx.font = '700 100px Inter, ui-sans-serif, system-ui, sans-serif'; return measureCtx.measureText(s).width / 100 * 1.06; }
+let layoutSig = "";
 function layoutLabels(k){
   curK = k;
-  const z = k * mapS, placed = [], pad = 1.5 / z, gap = 3 / z;   // z: screen pixels per map unit
+  const z = k * mapS, t = d3.zoomTransform(svg.node()), all = [...labels.values()];   // z: screen pixels per map unit
+  // Nothing to do when the same names are on at the same zoom and position
+  const sig = [z, mkR, t.x, t.y, showMarkers, mapPad, all.map(l => l.on ? (l.first ? 3 : l.must ? 2 : 1) : 0).join("")].join("|");
+  if (sig === layoutSig) return; layoutSig = sig;
+  const placed = [], pad = 1.5 / z, gap = 3 / z;
   const hit = b => placed.some(p => b.x0 < p.x1 && b.x1 > p.x0 && b.y0 < p.y1 && b.y1 > p.y0);
-  // Names stay inside the part of the map that is on screen (when their dot is)
-  const t = d3.zoomTransform(svg.node()), [px, py] = mapPad, vx0 = Math.max(0, (-px - t.x) / t.k), vy0 = Math.max(0, (-py - t.y) / t.k), vx1 = Math.min(960, (960 + px - t.x) / t.k), vy1 = Math.min(470, (470 + py - t.y) / t.k);
-  const inMap = b => b.x0 >= 0 && b.x1 <= 960 && b.y0 >= 0 && b.y1 <= 470;
+  // The part of the map that is on screen
+  const [px, py] = mapPad, vx0 = Math.max(0, (-px - t.x) / t.k), vy0 = Math.max(0, (-py - t.y) / t.k), vx1 = Math.min(960, (960 + px - t.x) / t.k), vy1 = Math.min(470, (470 + py - t.y) / t.k);
   const inView = b => b.x0 >= vx0 && b.x1 <= vx1 && b.y0 >= vy0 && b.y1 <= vy1;
   const boxAt = (cx, cy, w, h) => ({cx, cy, x0: cx - w / 2, x1: cx + w / 2, y0: cy - h / 2, y1: cy + h / 2});
-  const show = (l, b, fs, lead) => {
+  const widthOf = (l, short) => short ? (l.ws || (l.ws = textWidth1(l.short))) : (l.wn || (l.wn = textWidth1(l.name)));
+  const show = (l, txt, b, fs, r0) => {
     placed.push(b);
+    if (l.el.text() !== txt) l.el.text(txt);
     l.el.attr("x", b.cx).attr("y", b.cy).attr("display", null).style("font-size", fs + "px").style("stroke-width", (3 / z) + "px");
-    if (!lead) return l.line.attr("display", "none");
-    // a thin line from the dot to the nearest point of its name
-    const [x, y] = l.xy, tx = Math.max(b.x0 + pad, Math.min(b.x1 - pad, x)), ty = Math.max(b.y0 + pad, Math.min(b.y1 - pad, y));
-    l.line.attr("x1", x).attr("y1", y).attr("x2", tx).attr("y2", ty).attr("display", null);
+    // a thin line from the edge of the dot to the nearest point of its name, when the name isn't right beside it
+    const [x, y] = l.xy, tx = Math.max(b.x0 + pad, Math.min(b.x1 - pad, x)), ty = Math.max(b.y0 + pad, Math.min(b.y1 - pad, y)), d = Math.hypot(tx - x, ty - y);
+    if (r0 == null || d <= r0 + fs * 0.6) return l.line.attr("display", "none");
+    l.line.attr("x1", x + (tx - x) / d * r0).attr("y1", y + (ty - y) / d * r0).attr("x2", tx).attr("y2", ty).attr("display", null);
   };
   const hide = l => { l.el.attr("display", "none"); l.line.attr("display", "none"); };
-  const all = [...labels.values()], loose = [];
-  for (const l of all) if (!l.on) hide(l); else if (!l.w1) l.w1 = textWidth1(l.el.text());
   // Dots are never covered by a name
-  if (showMarkers) markers.forEach((m, i) => { const [x, y] = LIST[i].xy; placed.push({x0: x - mkR, x1: x + mkR, y0: y - mkR, y1: y + mkR}); });
+  markers.forEach((_, i) => { if (showMarkers || labels.get(i)?.first) { const [x, y] = LIST[i].xy; placed.push({x0: x - mkR, x1: x + mkR, y0: y - mkR, y1: y + mkR}); } });
   // 1. Names that fit inside their country sit at its center; bigger countries first
-  for (const l of all.filter(l => l.on).sort((a, b) => (b.first || 0) - (a.first || 0) || b.r - a.r)) {
-    const fit = Math.min(0.86 * l.span / l.w1, 1.15 * l.r) * z;   // screen pixels of text that fit inside the country
+  const loose = [];
+  for (const l of all.filter(l => { if (!l.on) hide(l); return l.on; }).sort((a, b) => (b.first || 0) - (a.first || 0) || b.r - a.r)) {
+    const w1 = widthOf(l), fit = Math.min(0.86 * l.span / w1, 1.15 * l.r) * z;   // screen pixels of text that fit inside the country
     if (!l.first && (l.small || fit < 9)) { loose.push(l); continue; }
-    if (l.el.text() !== l.name) { l.el.text(l.name); l.w1 = textWidth1(l.name); }
-    const fs = (l.first ? 14 : Math.min(15, fit)) / z, b = boxAt(l.xy[0], l.small ? l.xy[1] + mkR + fs * 0.8 : l.xy[1], l.w1 * fs + 2 * pad, fs * 1.1 + 2 * pad);
+    const fs = (l.first ? 14 : Math.min(15, fit)) / z, b = boxAt(l.xy[0], l.small ? l.xy[1] + mkR + fs * 0.8 : l.xy[1], w1 * fs + 2 * pad, fs * 1.1 + 2 * pad);
     if (!l.first && hit(b)) { hide(l); continue; }
-    show(l, b, fs, false);
+    show(l, l.name, b, fs, null);
   }
-  // 2. Small places, islands and countries too small for their name: the name goes next to the dot. If that spot
-  //    is taken it moves to the nearest free spot beside it, joined to the dot by a thin line. It is never hidden.
-  for (const l of loose) {
-    const txt = l.name.length > 16 ? l.short : l.name;   // long names use the short form when they sit beside a dot
-    if (l.el.text() !== txt) { l.el.text(txt); l.w1 = textWidth1(txt); }
-    const fs = 10 / z, w = l.w1 * fs + 2 * pad, h = fs * 1.1 + 2 * pad, lh = fs * 1.25, [x, y] = l.xy, r0 = l.small && showMarkers ? mkR : 0;
-    const seen = x >= vx0 && x <= vx1 && y >= vy0 && y <= vy1, ok = b => (seen ? inView(b) : inMap(b)) && !hit(b);
-    // Spots to try, nearest first: on the dot's own spot (no marker), under it, over it, then beside it in rows
-    const side = r0 + gap + w / 2, under = r0 + fs * 0.8, spots = l.small ? [] : [[0, 0, 0]];
+  // 2. Names that don't fit go next to the dot, or the nearest free spot beside it, joined by a thin line.
+  //    A small place or small island I found always gets its name while its dot is on screen; other names give way
+//    when it's crowded.
+  for (const l of loose.sort((a, b) => (b.must || 0) - (a.must || 0) || b.r - a.r)) {
+    const [x, y] = l.xy; if (x < vx0 || x > vx1 || y < vy0 || y > vy1) { hide(l); continue; }
+    const short = l.name.length > 16, txt = short ? l.short : l.name;   // long names use the map's short form here
+    const fs = 10 / z, w = widthOf(l, short) * fs + 2 * pad, h = fs * 1.1 + 2 * pad, lh = fs * 1.25, r0 = l.small && showMarkers ? mkR : 0;
+    // Spots to try, nearest first: its own spot (no dot there), under the dot, over it, then beside it in rows
+    const side = r0 + gap + w / 2, under = r0 + fs * 0.8, rows = l.must ? 36 : 5, spots = l.small ? [] : [[0, 0, 0]];
     spots.push([0, under, 0.1], [0, -under, 0.2]);
-    for (let j = -36; j <= 36; j++) for (const dx of [side, -side, 0, side + w / 2, -side - w / 2, side + w, -side - w]) {
+    for (let j = -rows; j <= rows; j++) for (const dx of [side, -side, 0, side + w / 2, -side - w / 2, side + w, -side - w]) {
       const dy = j * lh / 2; if (!dx && Math.abs(dy) < under + lh) continue;
       spots.push([dx, dy, 1 + Math.hypot(Math.max(Math.abs(dx) - w / 2, 0), Math.abs(dy)) / lh + (dx < 0 ? 0.2 : 0) + (dy < 0 ? 0.1 : 0)]);
     }
     spots.sort((a, b) => a[2] - b[2]);
-    let best = null;
-    for (const [dx, dy] of spots) { const b = boxAt(x + dx, y + dy, w, h); if (ok(b)) { best = b; break; } }
-    if (!best) best = boxAt(x, y + under, w, h);
-    const far = Math.hypot(Math.max(best.x0 - x, 0, x - best.x1), Math.max(best.y0 - y, 0, y - best.y1));
-    show(l, best, fs, far > r0 + fs * 0.6);
+    let best = null, spare = null;
+    for (const [dx, dy] of spots) { const b = boxAt(x + dx, y + dy, w, h); if (!inView(b)) continue; if (!hit(b)) { best = b; break; } spare = spare || b; }
+    if (!best && l.must) best = spare || boxAt(x, y + under, w, h);   // nowhere free: nearest spot on screen
+    if (best) show(l, txt, best, fs, r0); else hide(l);
   }
 }
 // Pole of inaccessibility (polylabel algorithm): the point inside a polygon farthest from its edges.
@@ -633,10 +637,10 @@ async function drawMap(){
   for (const c of LIST) if (SMALL.has(c.i)) markers.set(c.i, pg.append("circle").attr("cx", c.xy[0]).attr("cy", c.xy[1]).attr("r", mkR).attr("class", "mk").on("click", () => pick(c.i, "map")));
   for (const c of LIST) if (c.xy && !SMALL.has(c.i)) pins.set(c.i, pg.append("circle").attr("cx", c.xy[0]).attr("cy", c.xy[1]).attr("r", 2.6).attr("class","pin"));
   const ldg = g.append("g"), lg = g.append("g");
-  for (const c of LIST) if (c.xy) labels.set(c.i, {r: c.r, span: c.span, xy: c.xy, on: false, small: SMALL.has(c.i), name: c.name, short: c.key.length < c.name.length ? c.key : c.name, line: ldg.append("line").attr("class", "lead").attr("display", "none"), el: lg.append("text").attr("class","mlabel").attr("x", c.xy[0]).attr("y", c.xy[1])
+  for (const c of LIST) if (c.xy) labels.set(c.i, {r: c.r, span: c.span, xy: c.xy, on: false, small: SMALL.has(c.i), tiny: (c.area || 0) < 20, name: c.name, short: c.key.length < c.name.length ? c.key : c.name, line: ldg.append("line").attr("class", "lead").attr("display", "none"), el: lg.append("text").attr("class","mlabel").attr("x", c.xy[0]).attr("y", c.xy[1])
     .attr("text-anchor","middle").attr("dy","0.35em").attr("display","none").text(c.name)});
   layoutLabels(1);
-  document.fonts?.ready?.then(() => { labels.forEach(l => l.w1 = 0); queueLayout(curK); });
+  document.fonts?.ready?.then(() => { labels.forEach(l => { l.wn = l.ws = 0; }); layoutSig = ""; queueLayout(curK); });
   zoom = d3.zoom().scaleExtent([1, 16]).translateExtent([[0,0],[960,470]]).on("zoom", e => {
     g.attr("transform", e.transform); pins.forEach(p => p.attr("r", 2.6 / Math.sqrt(e.transform.k))); curK = e.transform.k; sizeMarkers(); queueLayout(e.transform.k);
   });
@@ -713,7 +717,7 @@ function render(){
       mk.style("fill", fill).classed("on", on).classed("sel", picked).attr("display", showMarkers || picked ? null : "none");
       mk.select("title").remove(); if (mine || over) mk.append("title").text(c.name);
     }
-    const l = labels.get(c.i); if (l) { l.on = picked || (showNames && (mine || over)); l.first = picked; l.el.classed("missed", missed).classed("sel", picked); }
+    const l = labels.get(c.i); if (l) { l.on = picked || (showNames && (mine || over)); l.first = picked; l.must = mine && (l.small || l.tiny); l.el.classed("missed", missed).classed("sel", picked); }
   }
   layoutLabels(curK);
   view = {ph, over, oppId, theirs, fillFor, tally};
