@@ -1,6 +1,6 @@
 # Country Race
 
-A live two-player race to name every country in the world, inspired by country quizzes. Both players type at the same time. Each player has their own strong color, and a country both players named gets a separate shared color, so the map always shows who has what. A scoreboard shows each player's count, their share of the world and who is ahead, and your own list of countries stays on screen next to the input while you type.
+A live two-player race to name every country in the world, inspired by country quizzes. Both players type at the same time. Each player has their own color, and a country both players named settles into a quiet shared color, so the map shows at a glance what only you found. A scoreboard shows each player's count, their share of the world and who is ahead, and your own list of countries stays on screen next to the input while you type.
 
 Play: https://scriblesean.github.io/country-race-game/
 

@@ -1,215 +1,257 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Country Race</title>
 <meta name="description" content="A live two-player race to name every country in the world.">
-<meta name="theme-color" content="#f6f8f9">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Inter:wght@400;500;600;700&display=swap">
+<meta name="theme-color" content="#edeae5">
 <style>
 /* Layout: the whole game fits the screen and the page itself never scrolls.
-   Top: scoreboard and clock. Wide screens: input above the map, found list in a column beside it.
-   Narrow screens: input, then the found list, then the map. Lobby and results are a card over the play area.
-   One calm light look on purpose (white, soft gray, pale blue), the same in every viewer theme. */
+   Top: scoreboard and clock. Wide screens: input above the map, country list in a column beside it.
+   Narrow screens: input, then the list, then the map; once the round is over the map moves above the list.
+   One calm light look, the same in every viewer theme: warm paper and gray for everything on the page.
+   The only strong colors are the players' own. */
 :root{
   color-scheme:light;
-  --bg:#f6f8f9; --panel:#ffffff; --fg:#1c2a31; --ink:#101820; --muted:#55646d; --line:#dbe2e6;
-  --ocean:#d3e4f1; --land:#f1f3f5; --border:#7b8a94; --pin:#8d9ba3;
-  --accent:#1f63c4; --goodline:#2f8f5b; --good:#1f6b43;
-  --miss:#a8323f; --missland:#f3c9cf; --none:#b4bdc4;
-  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
-  --body:Inter,ui-sans-serif,system-ui,sans-serif;
+  --bg:#edeae5; --surface:#f4f1ec; --raised:#faf8f4; --text:#292d28; --muted:#5b6056; --faint:#8a8e84; --track:#dedcd4; --line:#dcd8d0;
+  --ocean:#d9e2e4; --land:#f6f3ec; --offmap:#e7e6df; --border:#b9b4a7; --shared:#c8c2b3;
+  --err:#a23b32;
+  --body:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --maptext:"Helvetica Neue",Helvetica,Arial,sans-serif;   /* map names are drawn small and scaled: a face with fixed spacing, the one their widths are measured in */
+  --r:10px; --gap:10px;
 }
 *{box-sizing:border-box}
 html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none}
-body{background:var(--bg);color:var(--fg);font:14px/1.35 var(--body);-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--text);font:14px/1.4 var(--body);-webkit-text-size-adjust:100%;-webkit-font-smoothing:antialiased}
 [hidden]{display:none!important}
-.app{position:fixed;top:0;left:0;right:0;height:var(--vh,100dvh);max-width:1500px;margin:0 auto;display:flex;flex-direction:column;gap:8px;
-  padding:calc(8px + env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
-button,select,input{font-family:var(--body)}
-button,select{flex:none;min-height:40px;font-weight:600;font-size:14px;border-radius:10px;padding:8px 14px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer;white-space:nowrap}
-button.go{background:var(--accent);border-color:var(--accent);color:#fff}
+.app{position:fixed;top:0;left:0;right:0;height:var(--vh,100dvh);max-width:1600px;margin:0 auto;display:flex;flex-direction:column;gap:var(--gap);
+  padding:calc(10px + env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
+button,select,input{font-family:var(--body);color:var(--text)}
+button,select{flex:none;min-height:36px;font-weight:500;font-size:14px;border-radius:8px;padding:6px 14px;border:1px solid var(--line);background:var(--raised);cursor:pointer;white-space:nowrap}
+select{-webkit-appearance:none;appearance:none;padding-right:28px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%235b6056' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
+button.go{background:var(--text);border-color:var(--text);color:var(--raised);font-weight:600}
 button:hover:not(:disabled){filter:brightness(.97)}
+button.go:hover:not(:disabled){filter:brightness(1.25)}
 button:disabled{opacity:.5;cursor:not-allowed}
-button:focus-visible,select:focus-visible,input:focus-visible,.list:focus-visible,summary:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+button:focus-visible,select:focus-visible,input:focus-visible,.list:focus-visible,summary:focus-visible{outline:2px solid var(--text);outline-offset:2px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
-.sw{width:14px;height:14px;border-radius:4px;flex:none;display:inline-block;box-shadow:inset 0 0 0 1px rgba(16,24,32,.35)}
-button.link{border:0;background:none;padding:4px;color:var(--muted);font-weight:500;text-decoration:underline;align-self:center}
-.lbl{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
-.dot{width:10px;height:10px;border-radius:50%;flex:none;display:inline-block;box-shadow:inset 0 0 0 1px rgba(16,24,32,.35)}
+/* color keys: a round dot for a player or a state, everywhere */
+.sw,.dot{width:10px;height:10px;border-radius:50%;flex:none;display:inline-block;box-shadow:inset 0 0 0 1px rgba(41,45,40,.28)}
+button.link{border:0;background:none;padding:4px;color:var(--muted);font-weight:400;font-size:13px;text-decoration:underline;text-underline-offset:2px;align-self:flex-start}
+.lbl{font-size:13px;color:var(--muted);font-weight:600}
+.num{font-variant-numeric:tabular-nums}
+/* one grouped control: a gray track with the chosen part raised */
+.seg{display:flex;background:var(--track);border-radius:9px;padding:2px;gap:2px;min-width:0}
+.seg button{border:0;background:none;color:var(--muted);border-radius:7px;font-size:13px;padding:4px 12px;min-height:32px}
+.seg button[aria-selected="true"],.seg button[aria-pressed="true"]{background:var(--raised);color:var(--text);box-shadow:0 1px 2px rgba(40,35,25,.12)}
 
 /* top: title, scoreboard, clock */
-.top{display:flex;align-items:center;gap:10px;min-height:44px;flex:none}
-h1{font:800 22px var(--display);margin:0;letter-spacing:-.01em;white-space:nowrap}
-.board{display:flex;gap:8px;flex:1;min-width:0}
-.pchip{display:flex;align-items:baseline;gap:6px;min-width:0;overflow:hidden;padding:5px 12px;border-radius:12px;background:var(--c);color:var(--t);font-weight:700;border:3px solid var(--c)}
-.pchip.lead{border-color:var(--ink);box-shadow:0 0 0 2px var(--panel) inset}
-.pname{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-.pcount{font:800 22px/1 var(--display);font-variant-numeric:tabular-nums}
-.ppct{font-size:13px;font-variant-numeric:tabular-nums}
-.plead,.ptag{font-size:12px;font-weight:700;background:#fff;color:var(--ink);padding:1px 7px;border-radius:999px;white-space:nowrap;align-self:center}
-.clock{font:800 24px/1 var(--display);font-variant-numeric:tabular-nums;margin-left:auto;flex:none}
-.share{height:8px;border-radius:3px;background:var(--line);position:relative;overflow:hidden;flex:none}
+.top{display:flex;align-items:center;gap:8px 28px;min-height:40px;flex:none}
+h1{font-size:16px;font-weight:600;letter-spacing:-.3px;margin:0;white-space:nowrap}
+.board{display:flex;gap:28px;flex:1;min-width:0}
+.pchip{display:flex;align-items:baseline;gap:7px;min-width:0}
+.pchip .sw{align-self:center}
+.pname{font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.pcount{font-size:26px;line-height:1;font-weight:500;letter-spacing:-.6px;font-variant-numeric:tabular-nums}
+.ppct{font-size:13px;color:var(--faint);font-variant-numeric:tabular-nums}
+.plead,.ptag{font-size:12px;color:var(--muted);background:var(--track);padding:2px 8px;border-radius:6px;white-space:nowrap;align-self:center;font-variant-numeric:tabular-nums}
+.clock{font-size:26px;line-height:1;font-weight:500;letter-spacing:-.6px;font-variant-numeric:tabular-nums;margin-left:auto;flex:none}
+.share{height:4px;border-radius:2px;background:var(--track);position:relative;overflow:hidden;flex:none}
 .share i{position:absolute;top:0;bottom:0;width:0;transition:width .3s}
 #shareMe{left:0} #shareOpp{right:0}
 .status{color:var(--muted);font-size:13px;flex:none}
 
 /* play area */
-.main{flex:1;min-height:0;position:relative;display:grid;gap:8px;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(96px,1fr) auto}
+.main{flex:1;min-height:0;position:relative;display:grid;gap:var(--gap);grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(96px,1fr) auto}
 .play{display:flex;gap:8px;min-width:0}
 .guesswrap{position:relative;flex:1;min-width:0}
-#guess{width:100%;font-weight:500;font-size:18px;padding:12px 14px;border-radius:10px;border:2px solid var(--line);background:var(--panel);color:var(--fg)}
-#guess:focus{outline:none;border-color:var(--accent)}
-#guess.flash{border-color:var(--goodline)}
-#guess.pending{border-color:var(--goodline);border-style:dashed}
-#guess:disabled{opacity:.6;background:var(--bg)}
-.hint{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-weight:600;font-size:13px;padding:4px 9px;border-radius:999px;background:var(--line);color:var(--muted);pointer-events:none;white-space:nowrap;max-width:60%;overflow:hidden;text-overflow:ellipsis}
-.hint.pending{background:#e3f3e9;color:var(--good)}
+#guess{width:100%;font-size:17px;padding:11px 14px;border-radius:var(--r);border:1px solid var(--line);background:var(--raised)}
+#guess::placeholder,.rvrow input::placeholder,.card input::placeholder{color:var(--faint)}
+#guess:focus{outline:none;border-color:var(--text);box-shadow:0 0 0 1px var(--text)}
+#guess.flash,#guess.pending{border-color:var(--muted);box-shadow:0 0 0 1px var(--muted)}
+#guess.pending{border-style:dashed}
+#guess:disabled{opacity:.6;background:var(--surface)}
+.hint{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:13px;padding:3px 9px;border-radius:6px;background:var(--track);color:var(--muted);pointer-events:none;white-space:nowrap;max-width:60%;overflow:hidden;text-overflow:ellipsis}
+.hint.pending{color:var(--text);font-weight:500}
 
-/* found list */
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}
-.panelhead{display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid var(--line);flex:none}
-.tabs{display:flex;gap:4px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
-.tab{padding:5px 12px;font-size:13px;border-radius:999px;border-color:transparent;background:none;color:var(--muted)}
-.tab[aria-selected="true"],.tab[aria-pressed="true"]{background:var(--fg);border-color:var(--fg);color:#fff}
-.tab b{margin-left:5px;font-variant-numeric:tabular-nums}
-#giveUp{padding:5px 12px;font-size:13px;color:var(--muted)}
+/* country list */
+.panel{background:var(--surface);border-radius:12px;display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}
+.panelhead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px 0;flex:none}
+#giveUp{border:0;background:none;color:var(--muted);font-size:13px;padding:4px 6px}
+#giveUp.sure{color:var(--err);font-weight:600}
 /* review of a finished round */
-.review{display:flex;flex-direction:column;gap:6px;padding:8px;border-bottom:1px solid var(--line);flex:none}
-.rvtop{display:flex;align-items:center;gap:8px;min-height:40px}
-.review p{margin:0;font:700 15px var(--display);flex:1;min-width:0}
+.review{display:flex;flex-direction:column;gap:10px;padding:12px 12px 10px;flex:none}
+.rvtop{display:flex;align-items:center;gap:8px;min-height:32px}
+.review p{margin:0;font-size:15px;font-weight:600;letter-spacing:-.2px;flex:1;min-width:0}
+.rvtop button{min-height:32px;padding:4px 12px;font-size:13px}
 .app[data-phase="done"] .panelhead,.app[data-phase="wait"] .panelhead{display:none}
-.rvrow{display:flex;gap:6px}
-.rvrow input{flex:1 1 0;min-width:0;min-height:40px;font-size:16px;padding:6px 10px;border-radius:10px;border:1px solid var(--border);background:var(--panel);color:var(--fg)}
-.rvrow select{flex:0 1 46%;min-width:0;font-size:16px;padding:6px 8px}
-.filters{display:flex;flex-wrap:wrap;gap:4px;padding:2px}
-.filters .tab{padding:5px 10px;border-color:var(--line)}
-.rv{display:flex;align-items:center;gap:8px;min-height:40px;padding:4px 8px;border-radius:8px;cursor:pointer;font-size:14px}
+/* search and region share one field */
+.rvrow{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:8px;background:var(--raised);overflow:hidden}
+.rvrow:focus-within{border-color:var(--text)}
+.rvrow input{flex:1 1 0;min-width:0;min-height:36px;font-size:16px;padding:4px 10px;border:0;background:none;-webkit-appearance:none;appearance:none}
+.rvrow select{flex:0 1 auto;min-width:0;max-width:50%;font-size:14px;font-weight:400;color:var(--muted);border:0;border-left:1px solid var(--line);border-radius:0;background-color:transparent;padding:4px 26px 4px 10px}
+.rvrow input:focus-visible,.rvrow select:focus-visible{outline-offset:-2px}
+/* who found it: the counts are the filter */
+.filters button{flex:1 1 auto;display:flex;flex-direction:column-reverse;align-items:flex-start;justify-content:center;gap:1px;padding:5px 7px;min-height:46px;min-width:0}
+.filters b{font-size:17px;line-height:1.15;font-weight:500;letter-spacing:-.3px;color:var(--text);font-variant-numeric:tabular-nums}
+.filters .k{display:flex;align-items:center;gap:4px;font-size:11.5px;line-height:1.2}
+.filters .sw{width:7px;height:7px}
+.list{flex:1;min-height:0;overflow-y:auto;padding:4px 12px 10px;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--track) transparent}
+.app[data-phase="done"] .list,.app[data-phase="wait"] .list{padding:0 6px 6px;border-top:1px solid var(--line)}
+.rv{display:flex;align-items:center;gap:9px;min-height:34px;padding:3px 8px;border-radius:7px;cursor:pointer;font-size:14px}
+.rv:first-child{margin-top:6px}
 .rv:hover{background:var(--bg)}
-.rv[aria-selected="true"]{background:var(--fg);color:#fff}
-.rv[aria-selected="true"] .st{color:#fff}
-.rv .nm{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rv .st{margin-left:auto;color:var(--muted);font-size:13px;white-space:nowrap}
-.rv .sw{width:16px;height:16px}
-.mkdot{width:10px;height:10px;border-radius:50%;flex:none;border:2px solid currentColor;opacity:.7}
-#giveUp.sure{color:var(--miss);border-color:var(--miss)}
-.conts{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;padding:6px 8px 0;font-size:12px;text-align:center;flex:none}
-.cc{background:var(--bg);border-radius:6px;padding:3px 2px;color:var(--muted);white-space:nowrap;overflow:hidden}
-.cc b{display:block;color:var(--fg);font-variant-numeric:tabular-nums;font-size:13px}
+.rv[aria-selected="true"]{background:var(--track)}
+.rv .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rv .st{margin-left:auto;color:var(--faint);font-size:12.5px;white-space:nowrap}
+.rv[aria-selected="true"] .st{color:var(--muted)}
+.mkdot{width:7px;height:7px;border-radius:50%;flex:none;border:1px solid var(--faint)}
+.conts{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;padding:10px 12px 2px;font-size:11.5px;flex:none}
+.cc{color:var(--faint);white-space:nowrap;overflow:hidden}
+.cc b{display:block;color:var(--text);font-weight:500;font-variant-numeric:tabular-nums;font-size:13px}
 .cc .long{display:none}
-.list{flex:1;min-height:0;overflow-y:auto;padding:8px 10px;overscroll-behavior:contain}
-.names{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:14px}
-.names .n{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.names{display:flex;flex-wrap:wrap;gap:5px 14px;font-size:14px}
+.names .n{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:4px}
+.names .dot{width:8px;height:8px}
 .names .n.new{animation:pop .9s ease-out}
-@keyframes pop{from{background:#cfeedd;box-shadow:0 0 0 4px #cfeedd}to{background:transparent;box-shadow:0 0 0 4px transparent}}
-.grp{padding:6px 0 8px;border-top:1px solid var(--line)}
-.grp:first-child{border-top:0;padding-top:0}
-.grp h3{font:700 13px var(--display);margin:0 0 5px;display:flex;justify-content:space-between;gap:8px}
-.grp h3 span{font:600 12px var(--body);color:var(--muted);font-variant-numeric:tabular-nums}
-.empty{color:var(--muted);font-size:13px}
+@keyframes pop{from{background:var(--track);box-shadow:0 0 0 4px var(--track)}to{background:transparent;box-shadow:0 0 0 4px transparent}}
+.grp{padding:10px 0;border-top:1px solid var(--line)}
+.grp:first-child{border-top:0}
+.grp h3{font-size:13px;font-weight:600;color:var(--muted);margin:0 0 6px;display:flex;justify-content:space-between;gap:8px}
+.grp h3 span{font-weight:400;color:var(--faint);font-variant-numeric:tabular-nums}
+.grp .names:empty{display:none}
+.grp:has(.names:empty) h3{margin:0}
+.empty{color:var(--faint);font-size:13px;padding:8px 2px;display:block}
 
 /* map */
-.mapwrap{position:relative;background:var(--ocean);border-radius:12px;overflow:hidden;border:1px solid var(--line);touch-action:none;min-height:0;
+.mapwrap{position:relative;background:var(--ocean);border-radius:12px;overflow:hidden;touch-action:none;min-height:0;
   height:min(49vw,calc(var(--vh,100dvh) * .3))}
 #map{display:block;width:100%;height:100%;cursor:grab}
-#map .land{fill:var(--land);stroke:var(--border);stroke-width:.7;vector-effect:non-scaling-stroke;transition:fill .25s}
-#map .land.other{fill:#e4e8eb}
-#map .land.on{stroke:#fff;stroke-width:.9}
-#map .land.sel{stroke:var(--ink);stroke-width:3}
+/* land still to find is pale paper; a country only one player named is that player's color; one both named settles into quiet stone */
+#map .land{fill:var(--land);stroke:var(--border);stroke-width:.5;vector-effect:non-scaling-stroke;transition:fill .25s}
+#map .land.other{fill:var(--offmap);stroke:none}
+#map .land.on{stroke:var(--land)}
+#map .land.sel{stroke:var(--text);stroke-width:2}
 .app[data-phase="done"] #map .land:not(.other),.app[data-phase="wait"] #map .land:not(.other),.app[data-phase="done"] #map .mk,.app[data-phase="wait"] #map .mk{cursor:pointer}
-#map .pin{fill:var(--pin);stroke:var(--panel);vector-effect:non-scaling-stroke;stroke-width:1}
+#map .pin{fill:var(--faint);opacity:.45}
 /* small places: a white disc until someone names it, then the same solid color the land would get */
-#map .mk{fill:#fff;stroke:#3d4b54;stroke-width:1.6;vector-effect:non-scaling-stroke;transition:fill .25s}
-#map .mk.on{stroke:#fff;stroke-width:1.8;filter:drop-shadow(0 0 .6px var(--ink))}
-#map .mk.sel{stroke:var(--ink);stroke-width:3.5}
-.maptog{position:absolute;left:8px;top:8px;display:flex;gap:4px;z-index:2}
-.maptog button{padding:4px 12px;font-size:13px;border-radius:999px;background:var(--panel);color:var(--muted);border-color:var(--border)}
-.maptog button[aria-pressed="true"]{background:var(--fg);border-color:var(--fg);color:#fff}
-#togMore{display:none;font-size:14px;font-weight:700}
-.legend{position:absolute;left:8px;bottom:8px;display:flex;gap:10px;padding:5px 10px;border-radius:999px;background:color-mix(in srgb,var(--panel) 92%,transparent);font-size:12px;font-weight:600;pointer-events:none}
-.legend .key{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
-#map .mlabel{font-family:var(--body);font-weight:700;fill:var(--ink);stroke:#fff;paint-order:stroke;stroke-linejoin:round;pointer-events:none}
-#map .mlabel.missed{fill:var(--miss)}
-#map .mlabel.sel{font-weight:800}
-#map .lead{stroke:var(--ink);stroke-width:1;vector-effect:non-scaling-stroke;opacity:.75;pointer-events:none}
-.count{position:absolute;inset:0;display:grid;place-items:center;font:800 clamp(56px,14vw,160px) var(--display);color:var(--fg);background:color-mix(in srgb,var(--ocean) 55%,transparent);pointer-events:none}
-.zoomctl{position:absolute;right:8px;bottom:8px;display:flex;gap:4px;z-index:3}
-.zoomctl button{width:40px;height:40px;padding:0;font-size:18px}
+#map .mk{fill:#fff;stroke:var(--muted);stroke-width:.9;vector-effect:non-scaling-stroke;transition:fill .25s}
+#map .mk.sel{stroke:var(--text);stroke-width:2.5}
+#map .mlabel{font-family:var(--maptext);font-weight:500;fill:var(--text);stroke:none;pointer-events:none}
+#map .mlabel.out{stroke:var(--land);stroke-opacity:.8;paint-order:stroke;stroke-linejoin:round}
+#map .mlabel.onfill{fill:#fff}
+#map .mlabel.missed{fill:var(--muted)}
+#map .mlabel.sel{font-weight:600}
+#map .lead{stroke:var(--muted);stroke-width:.6;vector-effect:non-scaling-stroke;opacity:.6;pointer-events:none}
+.maptog{position:absolute;left:10px;top:10px;z-index:2;box-shadow:0 1px 3px rgba(40,35,25,.1)}
+/* two separate switches: a check marks each one that is on */
+.maptog button::before{content:"";display:inline-block;width:9px;height:5px;margin:0 7px 3px 0;border-left:1.5px solid transparent;border-bottom:1.5px solid transparent;transform:rotate(-45deg)}
+.maptog button[aria-pressed="true"]::before{border-color:currentColor}
+#togMore{display:none}
+.legend{position:absolute;left:10px;bottom:10px;display:flex;gap:12px;padding:5px 10px;border-radius:8px;background:color-mix(in srgb,var(--raised) 92%,transparent);font-size:12px;color:var(--muted);pointer-events:none}
+.legend .key{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.count{position:absolute;inset:0;display:grid;place-items:center;font-size:clamp(56px,14vw,150px);font-weight:500;letter-spacing:-.03em;font-variant-numeric:tabular-nums;color:var(--text);background:color-mix(in srgb,var(--ocean) 60%,transparent);pointer-events:none}
+.zoomctl{position:absolute;right:10px;bottom:10px;display:flex;z-index:3;background:var(--raised);border-radius:9px;box-shadow:0 1px 3px rgba(40,35,25,.14);overflow:hidden}
+.zoomctl button{width:36px;height:36px;min-height:0;padding:0;font-size:17px;font-weight:400;color:var(--muted);border:0;border-radius:0;background:none}
+.zoomctl button+button{box-shadow:-1px 0 0 var(--line)}
+.zoomctl button[aria-expanded="true"]{background:var(--track);color:var(--text)}
+#togMore{font-size:13px;font-weight:600}
 
 /* lobby and results card */
-.sheet{position:absolute;inset:0;z-index:5;display:flex;overflow-y:auto;padding:8px;border-radius:12px;background:color-mix(in srgb,var(--bg) 80%,transparent);overscroll-behavior:contain}
-.card{margin:auto;width:min(100%,460px);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:12px;box-shadow:0 8px 30px rgba(36,50,58,.08)}
-.card h2{font:800 28px/1.1 var(--display);margin:0;letter-spacing:-.01em;text-wrap:balance}
-.sub{color:var(--muted);margin:-6px 0 0}
-.result{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.rstat:first-child:nth-last-child(2){grid-column:1/-1}
-.rstat{border-radius:12px;padding:10px 12px;background:var(--c);color:var(--t);min-width:0}
-.rstat .rwho{font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rstat .big{font:800 36px/1.05 var(--display);font-variant-numeric:tabular-nums}
-.rstat .small{font-size:12px}
-.rnone{grid-column:1/-1;color:var(--fg);font-size:14px;display:flex;align-items:center;gap:8px}
-.codebox{display:flex;align-items:center;gap:10px;background:var(--bg);border-radius:12px;padding:8px 8px 8px 12px}
-.codebox b{font:800 26px/1 var(--display);letter-spacing:.12em;flex:1}
-.who{display:flex;flex-direction:column;gap:6px}
-.prow{display:flex;align-items:center;gap:8px;font-weight:600;min-width:0}
-.prow .sw{width:18px;height:18px}
-.prow .tag{margin-left:auto;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.prow.ready .tag{color:var(--good)}
-details.setup{border-top:1px solid var(--line);padding-top:10px}
-details.setup summary{cursor:pointer;font-weight:600;color:var(--muted);font-size:14px;padding:11px 0}
-details.setup[open] summary{margin-bottom:10px}
+.sheet{position:absolute;inset:0;z-index:5;display:flex;overflow-y:auto;padding:8px;border-radius:12px;background:color-mix(in srgb,var(--bg) 72%,transparent);overscroll-behavior:contain}
+.card{margin:auto;width:min(100%,440px);background:var(--raised);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:16px;box-shadow:0 1px 0 rgba(0,0,0,.04),0 18px 50px rgba(40,35,25,.16)}
+.card h2{font-size:26px;line-height:1.1;font-weight:600;margin:0;letter-spacing:-.7px;text-wrap:balance}
+.sub{color:var(--muted);margin:-10px 0 0;font-size:15px;font-variant-numeric:tabular-nums}
+.sub:empty{display:none}
+.result{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 16px}
+.rstat{min-width:0;display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:0 7px}
+.rstat .rwho{font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rstat .big{grid-column:1/-1;font-size:34px;line-height:1.15;font-weight:500;letter-spacing:-1px;font-variant-numeric:tabular-nums}
+.rstat .small{grid-column:1/-1;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+/* the whole world as one bar: who named what */
+.split{grid-column:1/-1;display:flex;flex-direction:column;gap:9px;min-width:0}
+.splitbar{display:flex;height:12px;border-radius:4px;overflow:hidden;background:var(--track);gap:1px}
+.splitbar i{min-width:0}
+.splitkey{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.splitkey span{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.splitkey b{font-weight:500;color:var(--text)}
+.codebox{display:flex;align-items:center;gap:12px;background:var(--surface);border-radius:var(--r);padding:8px 8px 8px 14px}
+.codebox b{font-size:22px;line-height:1;font-weight:600;letter-spacing:.14em;flex:1;font-variant-numeric:tabular-nums}
+.who{display:flex;flex-direction:column;gap:8px}
+.prow{display:flex;align-items:center;gap:8px;min-width:0}
+.prow .tag{margin-left:auto;font-size:13px;color:var(--faint)}
+.prow.ready .tag{color:var(--text);font-weight:500}
+.who .empty{padding:0}
+details.setup{border-top:1px solid var(--line)}
+details.setup summary{cursor:pointer;font-weight:600;color:var(--muted);font-size:13px;padding:14px 0 0}
+details.setup[open] summary{margin-bottom:12px}
 .fields{display:flex;flex-direction:column;gap:12px}
 .field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field .lbl{font-weight:400}
 .row{display:flex;gap:10px;flex-wrap:wrap}
 .row .field{flex:1 1 130px}
-.swatches{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px}
-.swcell{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0}
-.swatch{width:44px;height:44px;min-height:0;padding:0;border-radius:50%;border:4px solid var(--panel);box-shadow:0 0 0 1px var(--border)}
-.swatch.on{box-shadow:0 0 0 3px var(--ink)}
-.swatch.taken,.swatch.taken:disabled{opacity:1;cursor:not-allowed;border-width:13px;box-shadow:0 0 0 2px var(--muted)}
-.swcap{font-size:12px;font-weight:700;color:var(--fg);height:16px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.card input[type=text]{width:100%;font-size:16px;font-weight:500;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--fg)}
-.card select{width:100%;font-size:16px}
+.swatches{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:2px}
+.swcell{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
+/* a 44px target around a smaller disc; a ring marks mine, a smaller, faded disc marks one the other player holds */
+.swatch{width:44px;height:44px;min-height:0;padding:7px;border-radius:50%;border:2px solid transparent;background-clip:content-box!important}
+.swatch.on{border-color:var(--text);padding:4px}
+.swatch.taken,.swatch.taken:disabled{opacity:.45;cursor:not-allowed;padding:10px}
+.swcap{font-size:12px;color:var(--muted);height:16px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card input[type=text]{width:100%;min-height:36px;font-size:16px;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--raised)}
+.card select{width:100%;font-size:16px;font-weight:400;padding:6px 10px}
 .actions{display:flex;gap:8px;flex-wrap:wrap}
-.actions .go{flex:1 1 160px;padding:13px 14px;font-size:16px}
-.note{color:var(--muted);font-size:13px;margin:-4px 0 0;min-height:1em}
-.join{display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:12px}
+.actions button{min-height:44px;font-size:15px}
+.actions .go{flex:1 1 160px}
+.note{color:var(--muted);font-size:13px;margin:-8px 0 0;min-height:1em}
+.join{display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:16px}
 .join #code{flex:1 1 90px;min-width:0;text-transform:uppercase}
-.credit{color:var(--muted);font-size:12px;margin:0;text-align:center}
-#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20;max-width:90vw;text-align:center}
+.join #code::placeholder{text-transform:none}
+.credit{color:var(--faint);font-size:12px;margin:0}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--text);color:var(--raised);padding:8px 14px;border-radius:8px;font-size:13px;font-weight:500;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20;max-width:90vw;text-align:center}
 #toast.on{opacity:1}
 
 .app[data-phase="done"] .play,.app[data-phase="wait"] .play{display:none}
 @media (pointer:coarse){
-  button,select,.rv,.rvrow input,.card input[type=text]{min-height:44px}
+  button,select,.rv,.rvrow input,.card input[type=text],.seg button,.rvtop button{min-height:44px}
   .zoomctl button{width:44px;height:44px}
 }
 @media (max-width:899px){
   /* small map: the two map options sit behind one button next to the zoom buttons */
   #togMore{display:block}
-  .maptog{left:auto;top:auto;right:8px;bottom:60px;display:none}
+  .maptog{left:auto;top:auto;right:10px;bottom:106px;display:none}
+  .zoomctl{display:grid;grid-template-columns:auto auto}
+  .zoomctl button+button{box-shadow:none}
+  .zoomctl button:nth-child(even){box-shadow:-1px 0 0 var(--line)}
+  .zoomctl button:nth-child(n+3){border-top:1px solid var(--line)}
   .maptog.open{display:flex}
   h1{display:none}
-  .app[data-phase="done"] .main,.app[data-phase="wait"] .main{grid-template-rows:minmax(96px,1fr) auto}
-  .app[data-phase="home"] .top,.app[data-phase="lobby"] .top{display:none}
-  .pchip{flex:1 1 0;padding:5px 9px;gap:5px}
+  .top{gap:8px 14px}
+  .board{gap:14px}
+  .pchip{flex:0 1 auto;gap:5px}
+  .pcount,.clock{font-size:24px}
   .plead .w{display:none}
+  .plead,.ptag{padding:2px 6px}
+  /* round over: the map leads, the list sits under it */
+  .app[data-phase="done"] .main,.app[data-phase="wait"] .main{grid-template-rows:auto minmax(96px,1fr)}
+  .app[data-phase="done"] .mapwrap,.app[data-phase="wait"] .mapwrap{order:-1;height:min(58vw,calc(var(--vh,100dvh) * .34))}
+  .app[data-phase="home"] .top,.app[data-phase="lobby"] .top{display:none}
+  .card{padding:18px}
 }
 @media (max-width:899px) and (max-height:480px) and (orientation:landscape){
   .main{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+  .app[data-phase="done"] .main,.app[data-phase="wait"] .main{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr)}
   .play{grid-column:1 / -1}
-  .mapwrap{height:auto}
+  .mapwrap,.app[data-phase="done"] .mapwrap,.app[data-phase="wait"] .mapwrap{height:auto;order:0}
 }
 @media (min-width:900px){
-  .app{gap:10px;padding-top:calc(12px + env(safe-area-inset-top,0px));padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}
-  .main{gap:10px;grid-template-columns:minmax(0,1fr) 320px;grid-template-rows:auto minmax(0,1fr)}
+  .app{--gap:12px;padding:calc(14px + env(safe-area-inset-top,0px)) max(20px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(20px,env(safe-area-inset-left,0px))}
+  .main{grid-template-columns:minmax(0,1fr) clamp(300px,25vw,380px);grid-template-rows:auto minmax(0,1fr)}
   .play{grid-column:1;grid-row:1}
   .mapwrap{grid-column:1;grid-row:2;height:auto}
+  .app[data-phase="done"] .mapwrap,.app[data-phase="wait"] .mapwrap{grid-row:1 / span 2}
   .panel{grid-column:2;grid-row:1 / span 2}
-  .conts{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .conts{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 4px}
   .cc .long{display:inline} .cc .short{display:none}
   .board{flex:none}
-  .pchip{padding:6px 14px}
-  .zoomctl{flex-direction:column;right:10px;bottom:10px}
-  .clock{font-size:28px}
+  .zoomctl{flex-direction:column}
+  .zoomctl button+button{box-shadow:0 -1px 0 var(--line)}
 }
 @media (prefers-reduced-motion: reduce){
   #toast,#map .land,#map .mk,.share i{transition:none}
@@ -236,7 +278,7 @@ details.setup[open] summary{margin-bottom:10px}
     </div>
     <aside class="panel" id="panel" aria-label="Countries found">
       <div class="panelhead">
-        <div class="tabs" id="tabs" role="tablist"></div>
+        <div class="tabs seg" id="tabs" role="tablist"></div>
         <button id="giveUp" type="button" hidden>Give up</button>
       </div>
       <div class="review" id="review" hidden>
@@ -249,14 +291,14 @@ details.setup[open] summary{margin-bottom:10px}
             <option value="small">Small places</option>
           </select>
         </div>
-        <div class="filters" id="filters" role="group" aria-label="Show countries found by"></div>
+        <div class="filters seg" id="filters" role="group" aria-label="Show countries found by"></div>
       </div>
       <div class="conts" id="conts" hidden></div>
       <div class="list" id="list" role="tabpanel" aria-label="Countries you found" tabindex="0"></div>
     </aside>
     <div class="mapwrap">
       <svg id="map" viewBox="0 0 960 470" role="img" aria-label="World map"></svg>
-      <div class="maptog" id="maptog" role="group" aria-label="Show on the map">
+      <div class="maptog seg" id="maptog" role="group" aria-label="Show on the map">
         <button id="togNames" type="button" aria-pressed="true">Names</button>
         <button id="togMarkers" type="button" aria-pressed="true">Markers</button>
       </div>
@@ -275,7 +317,7 @@ details.setup[open] summary{margin-bottom:10px}
         <p class="sub" id="sheetSub"></p>
         <div class="result" id="result" hidden></div>
         <div class="codebox" id="roomOn" hidden>
-          <span class="lbl">Game code</span><b id="roomCode"></b>
+          <b id="roomCode" aria-label="Game code"></b>
           <button id="copyBtn" type="button">Copy link</button>
         </div>
         <div class="who" id="players" hidden></div>
@@ -430,11 +472,12 @@ function countOf(uid){ return uid === me ? found.size : (players.get(uid)?.count
 function timeUp(){ return round != null && !!duration && Date.now() >= startedAt + duration * 1000; }
 function allDone(){ if (round == null) return false; if (timeUp() || endedAt || Date.now() - startedAt > 2 * 3600e3) return true; const o = opponent(); return players.size > 0 && (!players.has(me) || !!myDone) && (!o || !!players.get(o).doneAt); }   // me and the player I'm racing; someone who left and was replaced doesn't hold the round open
 // Player colors: each player picks one in the lobby; two players can't hold the same one.
-// Strong, clearly different colors. Each one stands out from the land and the sea (3:1 or better) and from
+// Clear but not loud colors. Each one stands out from the land and the sea (3:1 or better) and from
 // every other one, also for the common kinds of color blindness; tests/two-player.mjs checks both.
-const PALETTE = Object.assign(Object.create(null), {blue: "#297BFF", amber: "#AF740E", pink: "#EB00B8", green: "#005227", violet: "#64008F", teal: "#0A7276"});
-// A country both players named gets this color, which nobody can pick
-const SHARED = "#1F2A33";
+const PALETTE = Object.assign(Object.create(null), {blue: "#6169D9", amber: "#857224", pink: "#B74997", green: "#2C4604", violet: "#631C6E", teal: "#016454"});
+// A country both players named gets this quiet color, which nobody can pick. Most of the map ends up this color,
+// so it sits between the pale land still to find and the players' own colors.
+const SHARED = "#C8C2B3";
 // Black or white text, whichever reads better on a color
 function textOn(hex){
   const [r, g, b] = [1, 3, 5].map(i => { const v = parseInt(hex.slice(i, i + 2), 16) / 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
@@ -500,15 +543,18 @@ function sizeMarkers(){
 // moved to the nearest free spot (with a thin line back to the dot) when that spot is taken. A small place
 // I found always shows its name; other names that don't fit give way when the map is crowded. Text is never
 // smaller than 9px on screen, whatever the size of the map.
-let curK = 1, layoutQueued = false;
+// A name inside its country is plain text (white on a player's color); a name beside a dot gets a thin pale edge
+// so it reads over land and sea. Once the round is over every country could carry a name, so the names beside
+// dots (other than my own small places) wait until the map is zoomed in. On a small map they wait during the race too.
+let curK = 1, layoutQueued = false, labelsQuiet = false;
 const measureCtx = document.createElement("canvas").getContext("2d");
-function textWidth1(s){ measureCtx.font = '700 100px Inter, ui-sans-serif, system-ui, sans-serif'; return measureCtx.measureText(s).width / 100 * 1.06; }
+function textWidth1(s){ measureCtx.font = '500 100px "Helvetica Neue", Helvetica, Arial, sans-serif'; return measureCtx.measureText(s).width / 100 * 1.06; }
 let layoutSig = "";
 function layoutLabels(k){
   curK = k;
   const z = k * mapS, t = d3.zoomTransform(svg.node()), all = [...labels.values()];   // z: screen pixels per map unit
   // Nothing to do when the same names are on at the same zoom and position
-  const sig = [z, mkR, t.x, t.y, showMarkers, mapPad, all.map(l => l.on ? (l.first ? 3 : l.must ? 2 : 1) : 0).join("")].join("|");
+  const sig = [z, mkR, t.x, t.y, showMarkers, mapPad, labelsQuiet, all.map(l => l.on ? (l.first ? 3 : l.must ? 2 : 1) + (l.dark ? 3 : 0) : 0).join("")].join("|");
   if (sig === layoutSig) return; layoutSig = sig;
   const placed = [], pad = 1.5 / z, gap = 3 / z;
   const hit = b => placed.some(p => b.x0 < p.x1 && b.x1 > p.x0 && b.y0 < p.y1 && b.y1 > p.y0);
@@ -520,7 +566,7 @@ function layoutLabels(k){
   const show = (l, txt, b, fs, r0) => {
     placed.push(b);
     if (l.el.text() !== txt) l.el.text(txt);
-    l.el.attr("x", b.cx).attr("y", b.cy).attr("display", null).style("font-size", fs + "px").style("stroke-width", (3 / z) + "px");
+    l.el.attr("x", b.cx).attr("y", b.cy).attr("display", null).style("font-size", fs + "px").style("stroke-width", (2.5 / z) + "px").classed("out", r0 != null).classed("onfill", r0 == null && !!l.dark);
     // a thin line from the edge of the dot to the nearest point of its name, when the name isn't right beside it
     const [x, y] = l.xy, tx = Math.max(b.x0 + pad, Math.min(b.x1 - pad, x)), ty = Math.max(b.y0 + pad, Math.min(b.y1 - pad, y)), d = Math.hypot(tx - x, ty - y);
     if (r0 == null || d <= r0 + fs * 0.6) return l.line.attr("display", "none");
@@ -534,7 +580,7 @@ function layoutLabels(k){
   for (const l of all.filter(l => { if (!l.on) hide(l); return l.on; }).sort((a, b) => (b.first || 0) - (a.first || 0) || b.r - a.r)) {
     const w1 = widthOf(l), fit = Math.min(0.86 * l.span / w1, 1.15 * l.r) * z;   // screen pixels of text that fit inside the country
     if (!l.first && (l.small || fit < 9)) { loose.push(l); continue; }
-    const fs = (l.first ? 14 : Math.min(15, fit)) / z, b = boxAt(l.xy[0], l.small ? l.xy[1] + mkR + fs * 0.8 : l.xy[1], w1 * fs + 2 * pad, fs * 1.1 + 2 * pad);
+    const fs = (l.first ? 14 : Math.min(13, fit)) / z, b = boxAt(l.xy[0], l.small ? l.xy[1] + mkR + fs * 0.8 : l.xy[1], w1 * fs + 2 * pad, fs * 1.1 + 2 * pad);
     if (!l.first && hit(b)) { hide(l); continue; }
     show(l, l.name, b, fs, null);
   }
@@ -542,20 +588,21 @@ function layoutLabels(k){
   //    A small place or small island I found always gets its name while its dot is on screen; other names give way
 //    when it's crowded.
   for (const l of loose.sort((a, b) => (b.must || 0) - (a.must || 0) || b.r - a.r)) {
-    const [x, y] = l.xy; if (x < vx0 || x > vx1 || y < vy0 || y > vy1) { hide(l); continue; }
+    const calm = labelsQuiet && k < 2;   // round over, not zoomed in: my small places keep a name only where one fits right by the dot
+    const [x, y] = l.xy; if (x < vx0 || x > vx1 || y < vy0 || y > vy1 || !l.must && (z < 0.9 || labelsQuiet && k < 2) || calm && z < 0.9) { hide(l); continue; }
     const short = l.name.length > 16, txt = short ? l.short : l.name;   // long names use the map's short form here
     const fs = 10 / z, w = widthOf(l, short) * fs + 2 * pad, h = fs * 1.1 + 2 * pad, lh = fs * 1.25, r0 = l.small && showMarkers ? mkR : 0;
     // Spots to try, nearest first: its own spot (no dot there), under the dot, over it, then beside it in rows
-    const side = r0 + gap + w / 2, under = r0 + fs * 0.8, rows = l.must ? 36 : 5, spots = l.small ? [] : [[0, 0, 0]];
+    const side = r0 + gap + w / 2, under = r0 + fs * 0.8, rows = calm ? 1 : l.must ? 36 : 5, spots = l.small ? [] : [[0, 0, 0]];
     spots.push([0, under, 0.1], [0, -under, 0.2]);
-    for (let j = -rows; j <= rows; j++) for (const dx of [side, -side, 0, side + w / 2, -side - w / 2, side + w, -side - w]) {
+    for (let j = -rows; j <= rows; j++) for (const dx of calm ? [side, -side] : [side, -side, 0, side + w / 2, -side - w / 2, side + w, -side - w]) {
       const dy = j * lh / 2; if (!dx && Math.abs(dy) < under + lh) continue;
       spots.push([dx, dy, 1 + Math.hypot(Math.max(Math.abs(dx) - w / 2, 0), Math.abs(dy)) / lh + (dx < 0 ? 0.2 : 0) + (dy < 0 ? 0.1 : 0)]);
     }
     spots.sort((a, b) => a[2] - b[2]);
     let best = null, spare = null;
     for (const [dx, dy] of spots) { const b = boxAt(x + dx, y + dy, w, h); if (!inView(b)) continue; if (!hit(b)) { best = b; break; } spare = spare || b; }
-    if (!best && l.must) best = spare || boxAt(x, y + under, w, h);   // nowhere free: nearest spot on screen
+    if (!best && l.must && !calm) best = spare || boxAt(x, y + under, w, h);   // nowhere free: nearest spot on screen
     if (best) show(l, txt, best, fs, r0); else hide(l);
   }
 }
@@ -635,14 +682,14 @@ async function drawMap(){
   for (const c of LIST) if (c.xy && ((c.area || 0) < SMALL_AREA || (c.big || 0) < SMALL_ISLAND)) SMALL.add(c.i);
   const pg = g.append("g");
   for (const c of LIST) if (SMALL.has(c.i)) markers.set(c.i, pg.append("circle").attr("cx", c.xy[0]).attr("cy", c.xy[1]).attr("r", mkR).attr("class", "mk").on("click", () => pick(c.i, "map")));
-  for (const c of LIST) if (c.xy && !SMALL.has(c.i)) pins.set(c.i, pg.append("circle").attr("cx", c.xy[0]).attr("cy", c.xy[1]).attr("r", 2.6).attr("class","pin"));
+  for (const c of LIST) if (c.xy && !SMALL.has(c.i)) pins.set(c.i, pg.append("circle").attr("cx", c.xy[0]).attr("cy", c.xy[1]).attr("r", 1.9).attr("class","pin"));
   const ldg = g.append("g"), lg = g.append("g");
   for (const c of LIST) if (c.xy) labels.set(c.i, {r: c.r, span: c.span, xy: c.xy, on: false, small: SMALL.has(c.i), tiny: (c.area || 0) < 20, name: c.name, short: c.key.length < c.name.length ? c.key : c.name, line: ldg.append("line").attr("class", "lead").attr("display", "none"), el: lg.append("text").attr("class","mlabel").attr("x", c.xy[0]).attr("y", c.xy[1])
     .attr("text-anchor","middle").attr("dy","0.35em").attr("display","none").text(c.name)});
   layoutLabels(1);
   document.fonts?.ready?.then(() => { labels.forEach(l => { l.wn = l.ws = 0; }); layoutSig = ""; queueLayout(curK); });
   zoom = d3.zoom().scaleExtent([1, 16]).translateExtent([[0,0],[960,470]]).on("zoom", e => {
-    g.attr("transform", e.transform); pins.forEach(p => p.attr("r", 2.6 / Math.sqrt(e.transform.k))); curK = e.transform.k; sizeMarkers(); queueLayout(e.transform.k);
+    g.attr("transform", e.transform); pins.forEach(p => p.attr("r", 1.9 / Math.sqrt(e.transform.k))); curK = e.transform.k; sizeMarkers(); queueLayout(e.transform.k);
   });
   svg.call(zoom);
   const ZOOM_MS = matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 250;
@@ -699,13 +746,13 @@ function render(){
   const oppId = opponent();
   const theirs = oppId ? new Set(players.get(oppId).got.map(Number)) : null;
   const myFill = colorOf(me), oppFill = oppId ? colorOf(oppId) : null;
-  const fillFor = {me: myFill, opp: oppFill, both: SHARED, none: over ? (theirs ? "var(--none)" : "var(--missland)") : null};
+  const fillFor = {me: myFill, opp: oppFill, both: SHARED, none: null};   // a country nobody named stays the pale land color
   const tally = {me: found.size, opp: theirs ? theirs.size : 0, both: 0, none: 0};
   if (!over) sel = null;
   for (const c of LIST) {
     const mine = found.has(c.i), th = !!theirs?.has(c.i), st = mine && th ? "both" : mine ? "me" : th ? "opp" : "none";
     stateOf.set(c.i, st); if (st === "both" || st === "none") tally[st]++;
-    const fill = fillFor[st], on = st !== "none", missed = !theirs && over && !mine, picked = sel === c.i;
+    const fill = fillFor[st], on = st !== "none", missed = over && !on, picked = sel === c.i;
     (shapes.get(c.i) || []).forEach(s => {
       s.style("fill", fill).classed("on", on).classed("sel", picked);
       if (picked) s.raise();
@@ -717,8 +764,9 @@ function render(){
       mk.style("fill", fill).classed("on", on).classed("sel", picked).attr("display", showMarkers || picked ? null : "none");
       mk.select("title").remove(); if (mine || over) mk.append("title").text(c.name);
     }
-    const l = labels.get(c.i); if (l) { l.on = picked || (showNames && (mine || over)); l.first = picked; l.must = mine && (l.small || l.tiny); l.el.classed("missed", missed).classed("sel", picked); }
+    const l = labels.get(c.i); if (l) { l.on = picked || (showNames && (mine || over)); l.first = picked; l.must = mine && (l.small || l.tiny); l.dark = (st === "me" || st === "opp") && textOn(fill) === "#ffffff"; l.el.classed("missed", missed).classed("sel", picked); }
   }
+  labelsQuiet = over;
   layoutLabels(curK);
   view = {ph, over, oppId, theirs, fillFor, tally};
   renderBoard(ph);
@@ -731,7 +779,7 @@ function render(){
   saidFound = found.size;
   pushPresence();
 }
-// Scoreboard: one chip per player in that player's color, with count, share of the world and the lead.
+// Scoreboard: one entry per player: color dot, name, count, share of the world and the lead.
 function renderBoard(ph){
   const bd = $("board"), sh = $("share"); bd.textContent = "";
   const ids = round != null ? [me, opponent()].filter(Boolean) : [];   // me first, then the player I'm racing
@@ -742,8 +790,8 @@ function renderBoard(ph){
   ids.forEach((uid, k) => {
     const n = counts[k], lead = gap > 0 && n === sorted[0], nm = uid === me ? "You" : nameOf(uid);
     if (lead) leader = uid;
-    const ch = el("div", "pchip" + (lead ? " lead" : "")); ch.style.setProperty("--c", colorOf(uid)); ch.style.setProperty("--t", textOn(colorOf(uid))); ch.dataset.uid = uid;
-    ch.append(el("span", "pname", nm), el("span", "pcount", n), el("span", "ppct", pct(n)));
+    const ch = el("div", "pchip" + (lead ? " lead" : "")), sw = el("i", "sw"); sw.style.background = colorOf(uid); ch.dataset.uid = uid;
+    ch.append(sw, el("span", "pname", nm), el("span", "pcount", n), el("span", "ppct", pct(n)));
     if (lead) { const ld = el("span", "plead", "+" + gap); ld.append(el("span", "w", " ahead")); ch.append(ld); }
     const done = uid === me ? myDone : players.get(uid)?.doneAt;
     if (done && !allDone()) ch.append(el("span", "ptag", "done"));
@@ -762,7 +810,7 @@ function renderBoard(ph){
 function renderLegend(){
   const {over, theirs} = view, lg = $("legend"), keys = [];
   if (theirs) keys.push([SHARED, "Both"]);
-  if (over) keys.push(theirs ? ["var(--none)", "Nobody"] : ["var(--missland)", "Missed"]);
+  if (over) keys.push(["var(--land)", theirs ? "Nobody" : "Missed"]);
   lg.hidden = !keys.length; lg.textContent = "";
   for (const [c, txt] of keys) { const k = el("span", "key"), s = el("i", "sw"); s.style.background = c; k.append(s, txt); lg.append(k); }
 }
@@ -780,7 +828,7 @@ function renderList(){
     b.onclick = () => { tabRace = k; render(); };
     tb.append(b);
   }
-  const item = (c, cls) => { const n = el("span", "n" + (cls ? " " + cls : "")), d = el("i", "dot"); d.style.background = fillFor[stateOf.get(c.i)]; n.append(d, c.name); return n; };
+  const item = (c, cls) => { const n = el("span", "n" + (cls ? " " + cls : "")), d = el("i", "dot"); d.style.background = fillFor[stateOf.get(c.i)] || "var(--land)"; n.append(d, c.name); return n; };
   const strip = $("conts"), box = $("list"); strip.hidden = tab !== "recent"; strip.textContent = ""; box.textContent = "";
   box.setAttribute("role", "tabpanel"); box.setAttribute("aria-label", "Countries you found"); box.removeAttribute("aria-activedescendant");
   if (tab === "recent") {
@@ -790,7 +838,7 @@ function renderList(){
       strip.append(cell);
     }
     const order = [...found.entries()].map(([i, f], k) => [i, f.at || 0, k]).sort((a, b) => b[1] - a[1] || b[2] - a[2]);
-    if (!order.length) { box.append(el("span", "empty", "Countries you name show up here.")); return; }
+    if (!order.length) return;
     const names = el("div", "names");
     order.forEach(([i, at], k) => names.append(item(LIST[i], k === 0 && Date.now() - at < 1500 ? "new" : "")));
     box.append(names); box.scrollTop = 0;
@@ -800,7 +848,6 @@ function renderList(){
     const cs = LIST.filter(c => c.cont === cont), show = cs.filter(c => found.has(c.i));
     const grp = el("div", "grp"), h = el("h3", null, cont); h.append(el("span", null, `${show.length} / ${cs.length}`));
     const names = el("div", "names");
-    if (!show.length) names.append(el("span", "empty", "None yet"));
     for (const c of show) names.append(item(c));
     grp.append(h, names); box.append(grp);
   }
@@ -832,8 +879,9 @@ function renderReview(){
   if (sig === listSig) return; listSig = sig;
   const fb = $("filters"); fb.textContent = "";
   for (const [k, txt] of kinds) {
-    const n = scope.filter(c => RV_FILTERS[k](c.i)).length, btn = el("button", "tab", txt); btn.type = "button"; btn.dataset.f = k; btn.dataset.n = n;
-    btn.append(el("b", null, n)); btn.setAttribute("aria-pressed", String(k === rvFilter));
+    const n = scope.filter(c => RV_FILTERS[k](c.i)).length, btn = el("button", "tab"), lab = el("span", "k"); btn.type = "button"; btn.dataset.f = k; btn.dataset.n = n;
+    if (k !== "all") { const d = el("i", "sw"); d.style.background = fillFor[k] || "var(--land)"; lab.append(d); }
+    lab.append(txt); btn.append(lab, el("b", null, n)); btn.setAttribute("aria-pressed", String(k === rvFilter));
     btn.setAttribute("aria-label", `${k === "opp" ? "Found by " + nameOf(oppId) : k === "me" && theirs ? "Found by you" : k === "both" ? "Found by both" : k === "none" && theirs ? "Found by nobody" : txt}: ${n}`);
     btn.onclick = () => { rvFilter = k; render(); };
     fb.append(btn);
@@ -844,7 +892,7 @@ function renderReview(){
   if (sel != null && rows.some(c => c.i === sel)) box.setAttribute("aria-activedescendant", "rv-" + sel); else box.removeAttribute("aria-activedescendant");
   if (!rows.length) { box.append(el("span", "empty", "No countries match.")); return; }
   for (const c of rows) {
-    const st = stateOf.get(c.i), row = el("div", "rv"), sw = el("i", "sw"); sw.style.background = fillFor[st];
+    const st = stateOf.get(c.i), row = el("div", "rv"), sw = el("i", "sw"); sw.style.background = fillFor[st] || "var(--land)";
     row.id = "rv-" + c.i; row.dataset.i = c.i; row.dataset.st = st; row.setAttribute("role", "option"); row.setAttribute("aria-selected", String(sel === c.i));
     row.append(sw, el("span", "nm", c.name));
     if (SMALL.has(c.i)) { const m = el("i", "mkdot"); m.title = "Small place, shown as a marker on the map"; row.append(m); }
@@ -899,12 +947,12 @@ function renderSheet(ph, tally){
   const fresh = ph !== lastSheetPhase;
   if (fresh) { lastSheetPhase = ph; $("setup").open = ph !== "done"; }
   // headline
-  let title = "Country Race", sub = "Name every country in the world before the clock runs out. Play solo, or race a friend live.";
-  if (ph === "lobby") { title = "Race lobby"; sub = versus ? "Pick your colors, then both press Ready." : isHost ? "Send the code or the link to the other player." : "Connecting you to the game."; }
+  let title = "Country Race", sub = "";
+  if (ph === "lobby") { title = "Race lobby"; sub = versus || isHost ? "" : "Connecting you to the game."; }
   if (ph === "done") {
     const a = tally.me, b = tally.opp;
     if (duel) { title = a === b ? "It's a tie" : a > b ? "You win" : `${nameOf(other)} wins`; sub = a === b ? `${a} each` : `${Math.max(a, b)} to ${Math.min(a, b)}`; }
-    else { title = a === TOTAL ? "All 197 found" : "Round over"; sub = `You found ${a} of ${TOTAL}.`; }
+    else { title = a === TOTAL ? "All 197 found" : "Round over"; sub = `You found ${a} of ${TOTAL}`; }
     if (saidResult !== round) { saidResult = round; announce(`${title}. ${sub}`); }
   }
   $("sheetTitle").textContent = title; $("sheetSub").textContent = sub;
@@ -912,14 +960,20 @@ function renderSheet(ph, tally){
   const rs = $("result"); rs.hidden = ph !== "done"; rs.textContent = "";
   if (ph === "done") {
     for (const uid of (duel ? [me, other] : [me])) {
-      const n = uid === me ? tally.me : tally.opp, st = el("div", "rstat"); st.style.setProperty("--c", colorOf(uid)); st.style.setProperty("--t", textOn(colorOf(uid))); st.dataset.uid = uid;
-      st.append(el("div", "rwho", uid === me ? "You" : nameOf(uid)), el("div", "big", n), el("div", "small", `${pct(n)} of the world`));
-      if (duel) st.append(el("div", "small", `${n - tally.both} nobody else found`));
+      const n = uid === me ? tally.me : tally.opp, st = el("div", "rstat"), d = el("i", "sw"); d.style.background = colorOf(uid); st.dataset.uid = uid;
+      st.append(d, el("div", "rwho", uid === me ? "You" : nameOf(uid)), el("div", "big", n), el("div", "small", `${pct(n)} of the world`));
       rs.append(st);
     }
-    const line = (color, text) => { const r = el("div", "rnone"), d = el("i", "sw"); d.style.background = color; r.append(d, text); rs.append(r); };
-    if (duel) line(SHARED, `${tally.both} found by both`);
-    line(duel ? "var(--none)" : "var(--missland)", tally.none ? `${tally.none} ${duel ? "found by nobody" : "missed"}. Browse every country next to the map.` : "Every country was found.");
+    // The whole world as one bar: mine alone, both, theirs alone, nobody
+    const parts = duel ? [[colorOf(me), "Only you", tally.me - tally.both], [SHARED, "Both", tally.both], [colorOf(other), `Only ${nameOf(other)}`, tally.opp - tally.both], ["var(--land)", "Nobody", tally.none]]
+      : [[colorOf(me), "Found", tally.me], ["var(--land)", "Missed", tally.none]];
+    const split = el("div", "split"), bar = el("div", "splitbar"), key = el("div", "splitkey");
+    bar.setAttribute("role", "img"); bar.setAttribute("aria-label", parts.map(p => `${p[1]}: ${p[2]}`).join(", "));
+    for (const [color, text, n] of parts) {
+      if (n) { const seg = el("i"); seg.style.background = color; seg.style.flex = `${n} 0 0`; bar.append(seg); }
+      const k = el("span"), d = el("i", "sw"); d.style.background = color; k.append(d, text, el("b", null, n)); key.append(k);
+    }
+    split.append(bar, key); rs.append(split);
   }
   // who is here, in which color
   const pl = $("players"); pl.hidden = !shared; pl.textContent = "";
