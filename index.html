@@ -1,6 +1,6 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Country Race</title>
-<meta name="description" content="A live two-player race to name every country in the world.">
+<meta name="description" content="A live race for up to six players to name every country in the world.">
 <meta name="theme-color" content="#edeae5">
 <style>
 /* Layout: the whole game fits the screen and the page itself never scrolls.
@@ -55,7 +55,11 @@ h1{font-size:16px;font-weight:600;letter-spacing:-.3px;margin:0;white-space:nowr
 .clock{font-size:26px;line-height:1;font-weight:500;letter-spacing:-.6px;font-variant-numeric:tabular-nums;margin-left:auto;flex:none}
 .share{height:4px;border-radius:2px;background:var(--track);position:relative;overflow:hidden;flex:none}
 .share i{position:absolute;top:0;bottom:0;width:0;transition:width .3s}
-#shareMe{left:0} #shareOpp{right:0}
+.board.many{flex:1 1 0;flex-wrap:wrap;gap:4px 18px}
+.board.many .pcount{font-size:20px}
+.board.many .ppct{display:none}
+.board.many .pname{max-width:8em}
+.pchip.gone{opacity:.55}
 .status{color:var(--muted);font-size:13px;flex:none}
 
 /* play area */
@@ -161,6 +165,13 @@ h1{font-size:16px;font-weight:600;letter-spacing:-.3px;margin:0;white-space:nowr
 .sub{color:var(--muted);margin:-10px 0 0;font-size:15px;font-variant-numeric:tabular-nums}
 .sub:empty{display:none}
 .result{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 16px}
+.result.many{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 12px}
+.result.many .rstat .big{font-size:24px}
+/* more than two players: one row of filters that scrolls sideways, so the list keeps its room */
+.filters.many{overflow-x:auto;scrollbar-width:none;overscroll-behavior-x:contain}
+.filters.many::-webkit-scrollbar{display:none}
+.filters.many button{flex:1 0 auto;min-width:52px}
+.filters.many .k{max-width:6.5em;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .rstat{min-width:0;display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:0 7px}
 .rstat .rwho{font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rstat .big{grid-column:1/-1;font-size:34px;line-height:1.15;font-weight:500;letter-spacing:-1px;font-variant-numeric:tabular-nums}
@@ -289,7 +300,7 @@ details.setup[open] summary{margin-bottom:12px}
     <div class="board" id="board" hidden></div>
     <span class="clock" id="clock" role="timer" title="Time">15:00</span>
   </header>
-  <div class="share" id="share" role="img" aria-label="Share of the world found" hidden><i id="shareMe"></i><i id="shareOpp"></i></div>
+  <div class="share" id="share" role="img" aria-label="Share of the world found" hidden></div>
   <div class="status" id="status" role="status" hidden></div>
   <main class="main">
     <div class="play">
@@ -389,16 +400,16 @@ details.setup[open] summary{margin-bottom:12px}
 // [map name, display name, ...extra accepted answers]
 const DATA = {
   "Africa": [["Algeria"],["Angola"],["Benin"],["Botswana"],["Burkina Faso"],["Burundi"],["Cabo Verde","Cabo Verde","Cape Verde"],["Cameroon"],
-    ["Central African Rep.","Central African Republic","CAR"],["Chad"],["Comoros"],
-    ["Congo","Republic of the Congo","Congo","Congo Brazzaville","Republic of Congo","Congo Republic"],
-    ["Dem. Rep. Congo","DR Congo","Democratic Republic of the Congo","Democratic Republic of Congo","DRC","Congo Kinshasa","Zaire"],
+    ["Central African Rep.","Central African Republic","CAR","Cen Afr Rep","Central Afr Rep"],["Chad"],["Comoros"],
+    ["Congo","Republic of the Congo","Congo","Congo Brazzaville","Republic of Congo","Congo Republic","Rep Congo","Rep of Congo","Rep of the Congo"],
+    ["Dem. Rep. Congo","DR Congo","Democratic Republic of the Congo","Democratic Republic of Congo","DRC","Congo Kinshasa","Zaire","Dem Rep of Congo","Dem Rep of the Congo","Democratic Republic Congo"],
     ["Côte d'Ivoire","Ivory Coast","Cote d'Ivoire"],["Djibouti"],["Egypt"],["Eq. Guinea","Equatorial Guinea"],["Eritrea"],["eSwatini","Eswatini","Swaziland"],
     ["Ethiopia"],["Gabon"],["Gambia"],["Ghana"],["Guinea"],["Guinea-Bissau","Guinea-Bissau","Guinea Bissau"],["Kenya"],["Lesotho"],["Liberia"],["Libya"],
     ["Madagascar"],["Malawi"],["Mali"],["Mauritania"],["Mauritius"],["Morocco"],["Mozambique"],["Namibia"],["Niger"],["Nigeria"],["Rwanda"],
     ["São Tomé and Principe","São Tomé and Príncipe","Sao Tome","Sao Tome and Principe"],["Senegal"],["Seychelles"],["Sierra Leone"],["Somalia"],
     ["South Africa"],["S. Sudan","South Sudan"],["Sudan"],["Tanzania"],["Togo"],["Tunisia"],["Uganda"],["Zambia"],["Zimbabwe"]],
-  "Europe": [["Albania"],["Andorra"],["Austria"],["Belarus"],["Belgium"],["Bosnia and Herz.","Bosnia and Herzegovina","Bosnia","Bosnia Herzegovina"],["Bulgaria"],
-    ["Croatia"],["Cyprus"],["Czechia","Czechia","Czech Republic"],["Denmark"],["Estonia"],["Finland"],["France"],["Germany"],["Greece"],["Hungary"],["Iceland"],
+  "Europe": [["Albania"],["Andorra"],["Austria"],["Belarus"],["Belgium"],["Bosnia and Herz.","Bosnia and Herzegovina","Bosnia","Bosnia Herzegovina","BiH"],["Bulgaria"],
+    ["Croatia"],["Cyprus"],["Czechia","Czechia","Czech Republic","Czech Rep"],["Denmark"],["Estonia"],["Finland"],["France"],["Germany"],["Greece"],["Hungary"],["Iceland"],
     ["Ireland"],["Italy"],["Kosovo"],["Latvia"],["Liechtenstein"],["Lithuania"],["Luxembourg"],["Malta"],["Moldova"],["Monaco"],["Montenegro"],
     ["Netherlands","Netherlands","Holland"],["Macedonia","North Macedonia","Macedonia"],["Norway"],["Poland"],["Portugal"],["Romania"],["Russia","Russia","Russian Federation"],
     ["San Marino"],["Serbia"],["Slovakia"],["Slovenia"],["Spain"],["Sweden"],["Switzerland"],["Ukraine"],
@@ -412,10 +423,10 @@ const DATA = {
   "North America": [["Antigua and Barb.","Antigua and Barbuda","Antigua"],["Bahamas"],["Barbados"],["Belize"],["Canada"],["Costa Rica"],["Cuba"],["Dominica"],
     ["Dominican Rep.","Dominican Republic"],["El Salvador","El Salvador","Salvador"],["Grenada"],["Guatemala"],["Haiti"],["Honduras"],["Jamaica"],["Mexico"],
     ["Nicaragua"],["Panama"],["St. Kitts and Nevis","Saint Kitts and Nevis","Saint Kitts"],["Saint Lucia"],
-    ["St. Vin. and Gren.","Saint Vincent and the Grenadines","Saint Vincent and Grenadines","Saint Vincent"],["Trinidad and Tobago","Trinidad and Tobago","Trinidad"],
+    ["St. Vin. and Gren.","Saint Vincent and the Grenadines","Saint Vincent and Grenadines","Saint Vincent"],["Trinidad and Tobago","Trinidad and Tobago","Trinidad","TnT"],
     ["United States of America","United States","United States of America","USA","US","America"]],
   "South America": [["Argentina"],["Bolivia"],["Brazil"],["Chile"],["Colombia"],["Ecuador"],["Guyana"],["Paraguay"],["Peru"],["Suriname"],["Uruguay"],["Venezuela"]],
-  "Oceania": [["Australia"],["Fiji"],["Kiribati"],["Marshall Is.","Marshall Islands"],["Micronesia","Micronesia","Federated States of Micronesia"],["Nauru"],
+  "Oceania": [["Australia"],["Fiji"],["Kiribati"],["Marshall Is.","Marshall Islands"],["Micronesia","Micronesia","Federated States of Micronesia","FSM"],["Nauru"],
     ["New Zealand"],["Palau"],["Papua New Guinea","Papua New Guinea","PNG"],["Samoa"],["Solomon Is.","Solomon Islands"],["Tonga"],["Tuvalu"],["Vanuatu"]]
 };
 // Extra map shapes that light up with a country
@@ -527,8 +538,15 @@ function toast(msg){ toastEl.textContent = msg; toastEl.classList.add("on"); cle
 function playerOrder(){ return [...players.entries()].sort((a,b)=>a[1].joinedAt-b[1].joinedAt).map(x=>x[0]); }
 function countOf(uid){ return uid === me ? found.size : (players.get(uid)?.count || 0); }
 function timeUp(){ return round != null && !!duration && Date.now() >= startedAt + duration * 1000; }
-function allDone(){ if (round == null) return false; if (timeUp() || endedAt || Date.now() - startedAt > 2 * 3600e3) return true; const o = opponent(); return players.size > 0 && (!players.has(me) || !!myDone) && (!o || !!players.get(o).doneAt); }   // me and the player I'm racing; someone who left and was replaced doesn't hold the round open
-// Player colors: each player picks one in the lobby; two players can't hold the same one.
+// The round is over for me once I'm finished and every other player in it has finished or left
+function allDone(){
+  if (round == null) return false; if (timeUp() || endedAt || Date.now() - startedAt > 2 * 3600e3) return true;
+  if (!players.size || (players.has(me) && !myDone)) return false;
+  const live = new Set(present().map(p => p.uid)), linked = !shared || isHost || !!conn?.open;   // a guest cut off from the host can't tell who left
+  return rivals().every(uid => players.get(uid).doneAt || (linked && !live.has(uid)));
+}
+function hasLeft(uid){ return shared && uid !== me && (isHost || !!conn?.open) && !present().some(p => p.uid === uid); }
+// Player colors: each player picks one in the lobby; no two players hold the same one.
 // Clear but not loud colors. Each one stands out from the land and the sea (3:1 or better) and from
 // every other one, also for the common kinds of color blindness; tests/two-player.mjs checks both.
 const PALETTE = Object.assign(Object.create(null), {blue: "#6169D9", amber: "#857224", pink: "#B74997", green: "#2C4604", violet: "#631C6E", teal: "#016454"});
@@ -542,34 +560,41 @@ function textOn(hex){
 }
 let myColor = "blue";
 try { const s = localStorage.getItem("country-race-color"); if (PALETTE[s]) myColor = s; } catch {}
-function colorKeyOf(uid){
-  if (uid === me) return myColor;
-  const c = present().find(p => p.uid === uid)?.color || players.get(uid)?.color;   // live choice first
-  // Never show the other player in my color. On a clash the host keeps the color and the guest moves,
-  // so the host shows the guest in the color the guest is about to move to.
-  if (c === myColor && isHost) return Object.keys(PALETTE).find(k => k !== myColor);
-  return PALETTE[c] ? c : (myColor === "blue" ? "amber" : "blue");
-}
-function colorOf(uid){ return PALETTE[colorKeyOf(uid)]; }
-function takenColors(){
-  // The other player's color stays theirs even while they are disconnected
-  return new Set([...present().map(p => p.uid), opponent()].filter(uid => uid && uid !== me).map(colorKeyOf));
-}
-// If the host already holds my color, I (the guest) move to the first free one.
-function resolveColorClash(){
-  if (!shared || isHost) return;
-  for (const uid of new Set([...present().map(p => p.uid), opponent()])) {
-    if (uid && uid !== me && colorKeyOf(uid) === myColor) {
-      const taken = takenColors(); myColor = Object.keys(PALETTE).find(k => !taken.has(k)) || myColor;
-    }
+// Who shows in which color, worked out the same way on every screen: the host keeps its pick, then the players
+// in the round (in the order they joined; a player who left keeps theirs), then anyone else by id. A player
+// whose pick is already held moves to the first color nobody picked, and moves their own pick to match.
+function colorPlan(){
+  const want = new Map([[me, myColor]]), rv = rivals();
+  for (const p of present()) if (p.uid !== me) want.set(p.uid, p.color);   // live choice first
+  for (const uid of rv) if (!PALETTE[want.get(uid)]) want.set(uid, players.get(uid)?.color);
+  const host = isHost ? me : remote?.uid, rank = uid => uid === host ? -1 : rv.includes(uid) ? rv.indexOf(uid) : 99;
+  const order = [...want.keys()].sort((a, b) => rank(a) - rank(b) || (a < b ? -1 : a > b ? 1 : 0));
+  const keys = Object.keys(PALETTE), wanted = new Set(want.values()), used = new Set(), out = new Map();
+  for (const uid of order) {
+    let c = want.get(uid);
+    if (!PALETTE[c] || used.has(c)) c = keys.find(k => !used.has(k) && !wanted.has(k)) || keys.find(k => !used.has(k)) || keys[0];
+    used.add(c); out.set(uid, c);
   }
+  return out;
 }
+function colorKeyOf(uid){ return uid === me ? myColor : colorPlan().get(uid) || players.get(uid)?.color || "blue"; }
+function colorOf(uid){ return PALETTE[colorKeyOf(uid)]; }
+// Colors other players hold, and who holds each
+function colorHolders(){ const m = new Map(); for (const [uid, c] of colorPlan()) if (uid !== me) m.set(c, uid); return m; }
+function takenColors(){ return new Set(colorHolders().keys()); }
+function resolveColorClash(){ if (shared && !isHost) myColor = colorPlan().get(me) || myColor; }
 function pickColor(k){
   if (!PALETTE[k] || !inLobby() || takenColors().has(k)) return;
   myColor = k; try { localStorage.setItem("country-race-color", k); } catch {}
   render(); if (shared) sync();
 }
-function nameOf(uid){ return uid === me ? "You" : present().find(p => p.uid === uid)?.name || players.get(uid)?.name || "Friend"; }
+// A player without a name is "Friend" in a two-player game, otherwise their color ("Teal")
+function nameOf(uid){
+  if (uid === me) return "You";
+  const n = present().find(p => p.uid === uid)?.name || players.get(uid)?.name; if (n) return n;
+  if (new Set([...present().map(p => p.uid), ...rivals()].filter(u => u !== me)).size < 2) return "Friend";
+  const k = colorKeyOf(uid); return k[0].toUpperCase() + k.slice(1);
+}
 function counting(){ return round != null && !endedAt && !myDone && Date.now() < startedAt; }
 function inLobby(){ return round == null || allDone(); }
 function isPlaying(){ if (round == null || endedAt || myDone || Date.now() < startedAt) return false; return !duration || Date.now() < startedAt + duration * 1000; }
@@ -784,32 +809,31 @@ let tabRace = null, sheetHidden = false, lastSheetPhase = null, listSig = "";
 let liveT = null;
 function announce(msg){ clearTimeout(liveT); liveT = setTimeout(() => { $("live").textContent = msg; }, 150); }
 let saidFound = 0, saidLead = null, saidResult = null;
-// The other player: whoever is connected now, else the last one who played this round
-function opponent(){
-  if (round == null) return null;
-  const ids = playerOrder().filter(id => id !== me && players.get(id)?.got), live = present().find(p => p.uid !== me)?.uid;
-  return ids.includes(live) ? live : ids.length ? ids[ids.length - 1] : null;
-}
+// The other players in this round (connected or not), in the order they joined
+function rivals(){ return round == null ? [] : playerOrder().filter(id => id !== me && Array.isArray(players.get(id)?.got)); }
 // Review of a finished round: which countries are listed, and the one picked on the map or in the list
 let rvFilter = "all", rvRegion = "all", rvQuery = "", sel = null, rvScope = "";
-const stateOf = new Map();   // country -> "me" | "opp" | "both" | "none", as last drawn
+const stateOf = new Map();   // country -> "me" | "opp" (one other player) | "both" (two or more players) | "none", as last drawn
+const fillAt = new Map();    // country -> its color, as last drawn
 let view = {};               // what the last draw worked out, for the list and the review
 function render(){
   const ph = phase(), over = isOver();
   $("app").dataset.phase = ph;
   resolveColorClash();
-  // Head-to-head: every country is one solid color. Mine, the other player's, or the shared color when we both named it.
-  // The other player's countries get a name label only once the game is over.
-  const oppId = opponent();
-  const theirs = oppId ? new Set(players.get(oppId).got.map(Number)) : null;
-  const myFill = colorOf(me), oppFill = oppId ? colorOf(oppId) : null;
-  const fillFor = {me: myFill, opp: oppFill, both: SHARED, none: null};   // a country nobody named stays the pale land color
-  const tally = {me: found.size, opp: theirs ? theirs.size : 0, both: 0, none: 0};
+  // Every country is one solid color: its only finder's, or the shared color when two or more players named it.
+  // Other players' countries get a name label only once the game is over.
+  const rv = rivals(), oppId = rv[0] || null;
+  const gotOf = new Map(rv.map(uid => [uid, new Set(players.get(uid).got.map(Number))])), theirs = oppId ? gotOf.get(oppId) : null;
+  const colors = new Map([me, ...rv].map(uid => [uid, colorOf(uid)]));
+  const fillFor = {me: colors.get(me), opp: rv.length === 1 ? colors.get(oppId) : null, both: SHARED, none: null};   // a country nobody named stays the pale land color
+  const tally = {me: found.size, opp: theirs ? theirs.size : 0, both: 0, none: 0, alone: new Map([me, ...rv].map(uid => [uid, 0]))};
   if (!over) sel = null;
   for (const c of LIST) {
-    const mine = found.has(c.i), th = !!theirs?.has(c.i), st = mine && th ? "both" : mine ? "me" : th ? "opp" : "none";
-    stateOf.set(c.i, st); if (st === "both" || st === "none") tally[st]++;
-    const fill = fillFor[st], on = st !== "none", missed = over && !on, picked = sel === c.i;
+    const mine = found.has(c.i), by = rv.filter(uid => gotOf.get(uid).has(c.i)); if (mine) by.unshift(me);
+    const st = by.length > 1 ? "both" : mine ? "me" : by.length ? "opp" : "none";
+    stateOf.set(c.i, st); if (st === "both" || st === "none") tally[st]++; else tally.alone.set(by[0], tally.alone.get(by[0]) + 1);
+    const fill = st === "both" ? SHARED : by.length ? colors.get(by[0]) : null, on = st !== "none", missed = over && !on, picked = sel === c.i;
+    fillAt.set(c.i, fill);
     (shapes.get(c.i) || []).forEach(s => {
       s.style("fill", fill).classed("on", on).classed("sel", picked);
       if (picked) s.raise();
@@ -825,7 +849,7 @@ function render(){
   }
   labelsQuiet = over;
   layoutLabels(curK);
-  view = {ph, over, oppId, theirs, fillFor, tally};
+  view = {ph, over, oppId, theirs, rv, gotOf, colors, fillFor, tally};
   renderBoard(ph);
   renderLegend();
   if (over) renderReview(); else renderList();
@@ -839,8 +863,8 @@ function render(){
 // Scoreboard: one entry per player: color dot, name, count, share of the world and the lead.
 function renderBoard(ph){
   const bd = $("board"), sh = $("share"); bd.textContent = "";
-  const ids = round != null ? [me, opponent()].filter(Boolean) : [];   // me first, then the player I'm racing
-  bd.hidden = sh.hidden = !ids.length;
+  const ids = round != null ? [me, ...rivals()] : [];   // me first, then the others in the order they joined
+  bd.hidden = sh.hidden = !ids.length; bd.classList.toggle("many", ids.length > 2);
   if (!ids.length) return;
   const counts = ids.map(countOf), sorted = [...counts].sort((a, b) => b - a), gap = sorted.length > 1 ? sorted[0] - sorted[1] : 0;
   let leader = ids.length > 1 ? "tie" : null;
@@ -851,33 +875,35 @@ function renderBoard(ph){
     ch.append(sw, el("span", "pname", nm), el("span", "pcount", n), el("span", "ppct", pct(n)));
     if (lead) { const ld = el("span", "plead", "+" + gap); ld.append(el("span", "w", " ahead")); ch.append(ld); }
     const done = uid === me ? myDone : players.get(uid)?.doneAt;
-    if (done && !allDone()) ch.append(el("span", "ptag", "done"));
+    if (!allDone()) { if (done) ch.append(el("span", "ptag", "done")); else if (hasLeft(uid)) { ch.append(el("span", "ptag", "left")); ch.classList.add("gone"); } }
     ch.setAttribute("role", "group");
     ch.setAttribute("aria-label", `${nm}: ${n} of ${TOTAL} found, ${pct(n)} of the world${lead ? `, ahead by ${gap}` : ids.length > 1 && gap === 0 ? ", tied" : ""}`);
     bd.append(ch);
   });
   if (ph === "race" && leader && saidLead && leader !== saidLead) announce(leader === "tie" ? "Scores are tied." : leader === me ? "You take the lead." : `${nameOf(leader)} takes the lead.`);
   saidLead = leader;
-  // Share bar: my part grows from the left, the other player's from the right
-  const a = counts[0], b = ids.length > 1 ? counts[1] : 0, scale = Math.max(TOTAL, a + b);
-  $("shareMe").style.width = a / scale * 100 + "%"; $("shareMe").style.background = colorOf(ids[0]);
-  $("shareOpp").style.width = b / scale * 100 + "%"; $("shareOpp").style.background = ids.length > 1 ? colorOf(ids[1]) : "transparent";
+  // Share bar: my part grows from the left; with two players the other's grows from the right, with more they follow mine
+  const scale = Math.max(TOTAL, counts.reduce((t, n) => t + n, 0)); let at = 0; sh.textContent = "";
+  ids.forEach((uid, k) => {
+    const part = el("i"); part.style.width = counts[k] / scale * 100 + "%"; part.style.background = colorOf(uid);
+    if (ids.length === 2 && k === 1) part.style.right = "0"; else part.style.left = at / scale * 100 + "%";
+    at += counts[k]; sh.append(part);
+  });
 }
 // Map key for the colors that aren't on the scoreboard
 function renderLegend(){
   const {over, theirs} = view, lg = $("legend"), keys = [];
-  if (theirs) keys.push([SHARED, "Both"]);
+  if (theirs) keys.push([SHARED, view.rv.length > 1 ? "Shared" : "Both"]);
   if (over) keys.push(["var(--land)", theirs ? "Nobody" : "Missed"]);
   lg.hidden = !keys.length; lg.textContent = "";
   for (const [c, txt] of keys) { const k = el("span", "key"), s = el("i", "sw"); s.style.background = c; k.append(s, txt); lg.append(k); }
 }
 // While racing: my countries, newest first or by continent.
 function renderList(){
-  const {fillFor} = view;
   $("review").hidden = true; $("tabs").hidden = false;
   const tabs = [["recent", "Newest"], ["cont", "By continent"]];
   let tab = tabRace; if (!tabs.some(t => t[0] === tab)) tab = wide.matches ? "cont" : "recent";
-  const sig = ["race", tab, [...found.keys()].join(), LIST.map(c => stateOf.get(c.i)[0]).join(""), fillFor.me, fillFor.opp].join("|");
+  const sig = ["race", tab, [...found.keys()].join(), LIST.map(c => fillAt.get(c.i)).join()].join("|");
   if (sig === listSig) return; listSig = sig;
   const tb = $("tabs"); tb.textContent = "";
   for (const [k, txt] of tabs) {
@@ -885,7 +911,7 @@ function renderList(){
     b.onclick = () => { tabRace = k; render(); };
     tb.append(b);
   }
-  const item = (c, cls) => { const n = el("span", "n" + (cls ? " " + cls : "")), d = el("i", "dot"); d.style.background = fillFor[stateOf.get(c.i)] || "var(--land)"; n.append(d, c.name); return n; };
+  const item = (c, cls) => { const n = el("span", "n" + (cls ? " " + cls : "")), d = el("i", "dot"); d.style.background = fillAt.get(c.i) || "var(--land)"; n.append(d, c.name); return n; };
   const strip = $("conts"), box = $("list"); strip.hidden = tab !== "recent"; strip.textContent = ""; box.textContent = "";
   box.setAttribute("role", "tabpanel"); box.setAttribute("aria-label", "Countries you found"); box.removeAttribute("aria-activedescendant");
   if (tab === "recent") {
@@ -911,35 +937,47 @@ function renderList(){
 }
 // When I'm finished: every country, with filters (who found it, region, search). Picking a row shows it on the map;
 // picking a country on the map shows its row.
-const RV_FILTERS = {all: () => true, me: i => found.has(i), opp: i => !!view.theirs?.has(i), both: i => stateOf.get(i) === "both", none: i => stateOf.get(i) === "none"};
+// Filters: "opp" is the one other player in a two-player game; with more players each has "u:<id>"
+function inFilter(k, i){
+  if (k === "all") return true; if (k === "me") return found.has(i);
+  if (k === "both" || k === "none") return stateOf.get(i) === k;
+  const uid = k === "opp" ? view.oppId : k.startsWith("u:") ? k.slice(2) : null;
+  return !!(uid && view.gotOf?.get(uid)?.has(i));
+}
 function statusText(i){
-  const st = stateOf.get(i), {theirs, oppId} = view;
+  const st = stateOf.get(i), {theirs, rv} = view;
   if (!theirs) return st === "me" ? "Found" : "Missed";
-  if (st === "both") { const o = ownerMap()[i]; return "Both" + (o === me ? ", you first" : o === oppId ? `, ${nameOf(oppId)} first` : ""); }
-  return st === "me" ? "You" : st === "opp" ? nameOf(oppId) : "Nobody";
+  if (st === "both") { const o = ownerMap()[i]; return (rv.length > 1 ? "Shared" : "Both") + (o === me ? ", you first" : rv.includes(o) ? `, ${nameOf(o)} first` : ""); }
+  return st === "me" ? "You" : st === "opp" ? nameOf(rv.find(uid => view.gotOf.get(uid).has(i))) : "Nobody";
+}
+// Final standings, most found first (me first on a tie): title and the scores line
+function standings(){
+  const ids = [me, ...view.rv].sort((a, b) => countOf(b) - countOf(a)), top = ids[0], tie = ids.length > 1 && countOf(ids[1]) === countOf(top);
+  return {ids, title: tie ? "It's a tie" : top === me ? "You win" : `${nameOf(top)} wins`, sub: ids.map(countOf).join(" to ")};
 }
 function reviewRows(){
   const q = norm(rvQuery);
   const scope = LIST.filter(c => (rvRegion === "all" || (rvRegion === "small" ? SMALL.has(c.i) : c.cont === rvRegion)) && (!q || norm(c.name).includes(q)));
-  return {scope, rows: scope.filter(c => RV_FILTERS[rvFilter](c.i)).sort((a, b) => a.name.localeCompare(b.name))};
+  return {scope, rows: scope.filter(c => inFilter(rvFilter, c.i)).sort((a, b) => a.name.localeCompare(b.name))};
 }
 function renderReview(){
-  const {ph, theirs, oppId, fillFor, tally} = view;
+  const {ph, theirs, oppId, rv, colors, tally} = view, many = rv.length > 1;
   $("review").hidden = false; $("tabs").hidden = true; $("conts").hidden = true;
-  const kinds = theirs ? [["all", "All"], ["me", "Mine"], ["opp", "Theirs"], ["both", "Both"], ["none", "Nobody"]] : [["all", "All"], ["me", "Found"], ["none", "Missed"]];
+  const kinds = !theirs ? [["all", "All"], ["me", "Found"], ["none", "Missed"]] : !many ? [["all", "All"], ["me", "Mine"], ["opp", "Theirs"], ["both", "Both"], ["none", "Nobody"]]
+    : [["all", "All"], ["me", "Mine"], ...rv.map(uid => ["u:" + uid, nameOf(uid)]), ["both", "Shared"], ["none", "Nobody"]];
   if (!kinds.some(k => k[0] === rvFilter)) rvFilter = "all";
   const a = tally.me, b = tally.opp;
-  $("rvSummary").textContent = !theirs ? `You found ${a} of ${TOTAL}` : ph !== "done" ? `You have ${a}. Waiting for ${nameOf(oppId)} to finish.`
-    : a === b ? `Tie, ${a} each` : `${a > b ? "You win" : nameOf(oppId) + " wins"}, ${Math.max(a, b)} to ${Math.min(a, b)}`;
+  $("rvSummary").textContent = !theirs ? `You found ${a} of ${TOTAL}` : ph !== "done" ? `You have ${a}. Waiting for ${many ? "the others" : nameOf(oppId)} to finish.`
+    : many ? `${standings().title}, ${standings().sub}` : a === b ? `Tie, ${a} each` : `${a > b ? "You win" : nameOf(oppId) + " wins"}, ${Math.max(a, b)} to ${Math.min(a, b)}`;
   const {scope, rows} = reviewRows();
-  const sig = ["review", ph, rvFilter, rvRegion, norm(rvQuery), LIST.map(c => stateOf.get(c.i)[0]).join(""), fillFor.me, fillFor.opp, theirs ? nameOf(oppId) : "", JSON.stringify(theirs ? ownerMap() : 0)].join("|");
+  const sig = ["review", ph, rvFilter, rvRegion, norm(rvQuery), LIST.map(c => fillAt.get(c.i)).join(), kinds.join(), JSON.stringify(theirs ? ownerMap() : 0)].join("|");
   if (sig === listSig) return; listSig = sig;
-  const fb = $("filters"); fb.textContent = "";
+  const fb = $("filters"); fb.textContent = ""; fb.classList.toggle("many", many);
   for (const [k, txt] of kinds) {
-    const n = scope.filter(c => RV_FILTERS[k](c.i)).length, btn = el("button", "tab"), lab = el("span", "k"); btn.type = "button"; btn.dataset.f = k; btn.dataset.n = n;
-    if (k !== "all") { const d = el("i", "sw"); d.style.background = fillFor[k] || "var(--land)"; lab.append(d); }
+    const n = scope.filter(c => inFilter(k, c.i)).length, btn = el("button", "tab"), lab = el("span", "k"); btn.type = "button"; btn.dataset.f = k; btn.dataset.n = n;
+    if (k !== "all") { const d = el("i", "sw"); d.style.background = k === "me" ? colors.get(me) : k === "opp" ? colors.get(oppId) : k.startsWith("u:") ? colors.get(k.slice(2)) : k === "both" ? SHARED : "var(--land)"; lab.append(d); }
     lab.append(txt); btn.append(lab, el("b", null, n)); btn.setAttribute("aria-pressed", String(k === rvFilter));
-    btn.setAttribute("aria-label", `${k === "opp" ? "Found by " + nameOf(oppId) : k === "me" && theirs ? "Found by you" : k === "both" ? "Found by both" : k === "none" && theirs ? "Found by nobody" : txt}: ${n}`);
+    btn.setAttribute("aria-label", `${k === "opp" ? "Found by " + nameOf(oppId) : k.startsWith("u:") ? "Found by " + txt : k === "me" && theirs ? "Found by you" : k === "both" ? (many ? "Found by more than one player" : "Found by both") : k === "none" && theirs ? "Found by nobody" : txt}: ${n}`);
     btn.onclick = () => { rvFilter = k; render(); };
     fb.append(btn);
   }
@@ -949,7 +987,7 @@ function renderReview(){
   if (sel != null && rows.some(c => c.i === sel)) box.setAttribute("aria-activedescendant", "rv-" + sel); else box.removeAttribute("aria-activedescendant");
   if (!rows.length) { box.append(el("span", "empty", "No countries match.")); return; }
   for (const c of rows) {
-    const st = stateOf.get(c.i), row = el("div", "rv"), sw = el("i", "sw"); sw.style.background = fillFor[st] || "var(--land)";
+    const st = stateOf.get(c.i), row = el("div", "rv"), sw = el("i", "sw"); sw.style.background = fillAt.get(c.i) || "var(--land)";
     row.id = "rv-" + c.i; row.dataset.i = c.i; row.dataset.st = st; row.setAttribute("role", "option"); row.setAttribute("aria-selected", String(sel === c.i));
     row.append(sw, el("span", "nm", c.name));
     if (SMALL.has(c.i)) { const m = el("i", "mkdot"); m.title = "Small place, shown as a marker on the map"; row.append(m); }
@@ -998,7 +1036,7 @@ const clockText = sec => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60))
 // Seconds into the round of each find, in order, per player
 function flowSeries(){
   const out = {};
-  for (const uid of [me, opponent()].filter(Boolean)) {
+  for (const uid of [me, ...rivals()]) {
     const fl = flowMap(), src = (Object.hasOwn(fl, uid) ? fl[uid] : null) || (uid === me && !shared ? Object.fromEntries([...found].map(([i, f]) => [i, Math.max(0, Math.round((f.at - startedAt) / 100) / 10)])) : null);
     out[uid] = src && typeof src === "object" ? Object.entries(src).filter(([i, t]) => okIdx(i) && Number.isFinite(+t) && +t >= 0).map(([, t]) => +t).sort((a, b) => a - b) : [];
   }
@@ -1022,6 +1060,7 @@ function flowStats(a, b){
 function flowSummary(ids, series){
   const a = series[ids[0]] || [], last = Math.max(0, ...Object.values(series).flat());
   if (ids.length < 2) return a.length ? `${a.length} found in ${clockText(last)}` : "";
+  if (ids.length > 2) return "";
   const st = flowStats(a, series[ids[1]] || []);
   if (!st.steps.length) return "";
   const who = sign => sign > 0 ? "You" : nameOf(ids[1]);
@@ -1032,9 +1071,9 @@ function renderFlow(box, ids){
   if (!all.length) return;
   // Each line ends on the score shown above it: a find the host never got to stamp counts at the last moment
   const last = Math.max(...all);
-  for (const uid of ids) { const n = uid === me ? found.size : view.theirs ? view.theirs.size : series[uid].length; series[uid] = series[uid].slice(0, n); while (series[uid].length < n) series[uid].push(last); }
+  for (const uid of ids) { const n = uid === me ? found.size : view.gotOf?.get(uid)?.size ?? series[uid].length; series[uid] = series[uid].slice(0, n); while (series[uid].length < n) series[uid].push(last); }
   const NS = "http://www.w3.org/2000/svg", mk = (tag, attrs, text) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); if (text != null) e.textContent = text; return e; };
-  const duel = ids.length > 1, W = Math.max(240, Math.round(box.clientWidth) || 320), plotH = Math.max(64, Math.min(96, Math.round(W * 0.24))), top = 8, right = 36, stripH = duel ? 28 : 0, stripGap = duel ? 8 : 0;
+  const duel = ids.length === 2, W = Math.max(240, Math.round(box.clientWidth) || 320), plotH = Math.max(64, Math.min(96, Math.round(W * 0.24))), top = 8, right = 36, stripH = duel ? 28 : 0, stripGap = duel ? 8 : 0;
   const H = top + plotH + stripGap + stripH + 18, tMax = duration && last > duration - 30 ? duration : Math.max(30, Math.ceil(last / 30) * 30), yMax = Math.max(10, ...ids.map(uid => series[uid].length));
   const x = t => Math.round(t / tMax * (W - right) * 10) / 10, y = n => Math.round((top + (1 - n / yMax) * plotH) * 10) / 10;
   const summary = flowSummary(ids, series);
@@ -1083,8 +1122,8 @@ function renderSheet(ph, tally){
   for (const e of document.querySelectorAll(".play, .panel, .mapwrap")) e.inert = !$("sheet").hidden;   // nothing behind the card takes focus
   $("again").hidden = ph !== "done";
   if (!open) { lastSheetPhase = ph; return; }
-  const ps = present(), versus = shared && room && ps.length > 1, opp = ps.find(p => p.uid !== me);
-  const other = view.oppId, duel = ph === "done" && !!view.theirs;
+  const ps = present(), versus = shared && room && ps.length > 1, opps = ps.filter(p => p.uid !== me), opp = opps[0];
+  const other = view.oppId, duel = ph === "done" && !!view.theirs, many = duel && view.rv.length > 1;
   const fresh = ph !== lastSheetPhase;
   if (fresh) { lastSheetPhase = ph; $("setup").open = ph !== "done"; }
   // headline
@@ -1092,21 +1131,25 @@ function renderSheet(ph, tally){
   if (ph === "lobby") { title = "Race lobby"; sub = versus || isHost ? "" : "Connecting you to the game."; }
   if (ph === "done") {
     const a = tally.me, b = tally.opp;
-    if (duel) { title = a === b ? "It's a tie" : a > b ? "You win" : `${nameOf(other)} wins`; sub = a === b ? `${a} each` : `${Math.max(a, b)} to ${Math.min(a, b)}`; }
+    if (many) ({title, sub} = standings());
+    else if (duel) { title = a === b ? "It's a tie" : a > b ? "You win" : `${nameOf(other)} wins`; sub = a === b ? `${a} each` : `${Math.max(a, b)} to ${Math.min(a, b)}`; }
     else { title = a === TOTAL ? "All 197 found" : "Round over"; sub = `You found ${a} of ${TOTAL}`; }
     if (saidResult !== round) { saidResult = round; announce(`${title}. ${sub}`); }
   }
   $("sheetTitle").textContent = title; $("sheetSub").textContent = sub;
   // results
-  const rs = $("result"); rs.hidden = ph !== "done"; rs.textContent = "";
+  const rs = $("result"); rs.hidden = ph !== "done"; rs.textContent = ""; rs.classList.toggle("many", many);
   if (ph === "done") {
-    for (const uid of (duel ? [me, other] : [me])) {
-      const n = uid === me ? tally.me : tally.opp, st = el("div", "rstat"), d = el("i", "sw"); d.style.background = colorOf(uid); st.dataset.uid = uid;
-      st.append(d, el("div", "rwho", uid === me ? "You" : nameOf(uid)), el("div", "big", n), el("div", "small", `${pct(n)} of the world`));
+    // two players: me, then them; more: everyone ranked, most found first
+    const ranked = many ? standings().ids : duel ? [me, other] : [me];
+    ranked.forEach((uid, k) => {
+      const n = countOf(uid), st = el("div", "rstat"), d = el("i", "sw"); d.style.background = colorOf(uid); st.dataset.uid = uid;
+      st.append(d, el("div", "rwho", (many ? `${k + 1}. ` : "") + (uid === me ? "You" : nameOf(uid)) + (hasLeft(uid) ? " (left)" : "")), el("div", "big", n), el("div", "small", `${pct(n)} of the world`));
       rs.append(st);
-    }
-    // The whole world as one bar: mine alone, both, theirs alone, nobody
-    const parts = duel ? [[colorOf(me), "Only you", tally.me - tally.both], [SHARED, "Both", tally.both], [colorOf(other), `Only ${nameOf(other)}`, tally.opp - tally.both], ["var(--land)", "Nobody", tally.none]]
+    });
+    // The whole world as one bar: mine alone, shared, each other player's alone, nobody
+    const parts = many ? [[colorOf(me), "Only you", tally.alone.get(me)], ...view.rv.map(uid => [colorOf(uid), `Only ${nameOf(uid)}`, tally.alone.get(uid)]), [SHARED, "Shared", tally.both], ["var(--land)", "Nobody", tally.none]]
+      : duel ? [[colorOf(me), "Only you", tally.me - tally.both], [SHARED, "Both", tally.both], [colorOf(other), `Only ${nameOf(other)}`, tally.opp - tally.both], ["var(--land)", "Nobody", tally.none]]
       : [[colorOf(me), "Found", tally.me], ["var(--land)", "Missed", tally.none]];
     const split = el("div", "split"), bar = el("div", "splitbar"), key = el("div", "splitkey");
     bar.setAttribute("role", "img"); bar.setAttribute("aria-label", parts.map(p => `${p[1]}: ${p[2]}`).join(", "));
@@ -1115,7 +1158,7 @@ function renderSheet(ph, tally){
       const k = el("span"), d = el("i", "sw"); d.style.background = color; k.append(d, text, el("b", null, n)); key.append(k);
     }
     split.append(bar, key); rs.append(split);
-    renderFlow(rs, duel ? [me, other] : [me]);
+    renderFlow(rs, duel ? [me, ...view.rv] : [me]);
   }
   // who is here, in which color
   const pl = $("players"); pl.hidden = !shared; pl.textContent = "";
@@ -1126,17 +1169,18 @@ function renderSheet(ph, tally){
       pl.append(row);
     }
     if (ps.length < 2) pl.append(el("span", "empty", ph === "done" ? "The other player isn't connected." : "Waiting for the other player to join."));
+    else if (ps.length < 6 && ph === "lobby") pl.append(el("span", "empty", `Up to 6 players: send the link to ${6 - ps.length} more.`));
   }
-  // color picker: a color the other player holds can't be picked, and shows who holds it
-  const cp = $("colors"), taken = takenColors(), holder = opp?.uid || other;
+  // color picker: a color another player holds can't be picked, and shows who holds it
+  const cp = $("colors"), holders = colorHolders();
   const focusKey = cp.contains(document.activeElement) ? document.activeElement.dataset.k : null;   // the swatches are rebuilt; keep keyboard focus
   cp.textContent = "";
   for (const [k, v] of Object.entries(PALETTE)) {
-    const mine = k === myColor, held = taken.has(k), cell = el("span", "swcell");
+    const mine = k === myColor, holder = holders.get(k), held = !!holder, cell = el("span", "swcell");
     const b = el("button", "swatch" + (mine ? " on" : "") + (held ? " taken" : "")); b.type = "button";
-    b.style.background = v; b.disabled = held; b.dataset.k = k; b.setAttribute("aria-label", k + (mine ? " (yours)" : held ? ` (taken by ${holder ? nameOf(holder) : "the other player"})` : ""));
+    b.style.background = v; b.disabled = held; b.dataset.k = k; b.setAttribute("aria-label", k + (mine ? " (yours)" : held ? ` (taken by ${nameOf(holder)})` : ""));
     b.setAttribute("aria-pressed", String(mine)); b.onclick = () => pickColor(k);
-    cell.append(b, el("span", "swcap", mine ? "You" : held ? (holder ? nameOf(holder) : "Taken") : ""));
+    cell.append(b, el("span", "swcap", mine ? "You" : held ? nameOf(holder) : ""));
     cp.append(cell);
     if (k === focusKey && !held) b.focus();
   }
@@ -1147,42 +1191,43 @@ function renderSheet(ph, tally){
     : ready ? (ph === "done" ? "Cancel rematch" : "Cancel") : (ph === "done" ? "Rematch" : "Ready");
   btn.disabled = guestAlone; btn.classList.toggle("go", !(versus && ready));
   btn.hidden = ph === "done";   // round over: the rematch bar under the card has the button
-  const note = $("readyNote"), nt = !versus || ph === "done" ? "" : ready && !opp.ready ? `Waiting for ${nameOf(opp.uid)}.` : !ready && opp.ready ? `${nameOf(opp.uid)} is ready.` : "";
+  const waiting = opps.filter(p => !p.ready), set = opps.filter(p => p.ready), names = list => list.map(p => nameOf(p.uid)).join(", ");
+  const note = $("readyNote"), nt = !versus || ph === "done" ? "" : ready && waiting.length ? `Waiting for ${names(waiting)}.` : !ready && set.length ? (set.length > 1 ? `${names(set)} are ready.` : `${names(set)} is ready.`) : "";
   note.textContent = nt; note.hidden = !nt;
   $("viewBtn").hidden = ph !== "done";
-  renderAgain(ph, versus, guestAlone, opp);
+  renderAgain(ph, versus, guestAlone, opps);
   $("roomSolo").hidden = shared; $("roomOn").hidden = $("leaveBtn").hidden = !shared;
   // Keyboard: when the card appears, start on its main button
   const act = document.activeElement;
   const main = ph === "done" ? $("againBtn") : btn;
   if ((fresh || wasHidden) && !$("sheet").hidden && !main.disabled && (!act || act === document.body) && !matchMedia("(pointer:coarse)").matches) main.focus();
 }
-// Round over: one bar under the results and the review. Solo: Play again. Head-to-head: Rematch, and when the
-// other player has asked, it says so; after my tap it waits for them, with Cancel. Both tapped: the host starts the round.
-function renderAgain(ph, versus, guestAlone, opp){
+// Round over: one bar under the results and the review. Solo: Play again. Head-to-head: Rematch, and when others
+// have asked, it says so; after my tap it waits for the rest, with Cancel. Everyone connected tapped: the host starts the round.
+function renderAgain(ph, versus, guestAlone, opps){
   const bar = $("again"), b = $("againBtn"), msg = $("againMsg");
   bar.hidden = ph !== "done"; if (bar.hidden) return;
-  const d = +$("dur").value, limit = d ? `${d / 60} min` : "no time limit", them = opp ? nameOf(opp.uid) : "";
-  const asked = versus && !ready && opp.ready;
+  const d = +$("dur").value, limit = d ? `${d / 60} min` : "no time limit", names = list => list.map(p => nameOf(p.uid)).join(", ");
+  const set = opps.filter(p => p.ready), waiting = opps.filter(p => !p.ready), asked = versus && !ready && set.length > 0, one = set.length === 1 ? set[0].uid : null;
   let text = [], label = "Rematch";
   if (!versus && !guestAlone) { label = "Play again"; text = [`Same settings, ${limit}`]; }
   else if (guestAlone) text = ["The other player isn't connected"];
-  else if (ready && opp.ready) { label = "Starting"; text = ["Starting the next round"]; }
-  else if (ready) { label = "Cancel"; text = [`Waiting for ${them}`]; }
-  else if (asked) text = [el("b", null, them), " wants a rematch"];
+  else if (ready && !waiting.length) { label = "Starting"; text = ["Starting the next round"]; }
+  else if (ready) { label = "Cancel"; text = [`Waiting for ${names(waiting)}`]; }
+  else if (asked) text = [el("b", null, names(set)), one ? " wants a rematch" : " want a rematch"];
   else text = [`Same colors, ${limit}`];
-  const sig = JSON.stringify([asked && colorOf(opp.uid), text.map(t => t.textContent ?? t)]);
+  const sig = JSON.stringify([asked && one && colorOf(one), text.map(t => t.textContent ?? t)]);
   if (msg.dataset.sig !== sig) { msg.dataset.sig = sig; msg.textContent = ""; } else text = null;   // rebuilt only when it changes, so it's announced once
-  if (text && asked) { const dot = el("i", "sw"); dot.style.background = colorOf(opp.uid); msg.append(dot); }
+  if (text && asked && one) { const dot = el("i", "sw"); dot.style.background = colorOf(one); msg.append(dot); }
   if (text) { const sp = el("span"); sp.append(...text); msg.append(sp); }
   bar.classList.toggle("asked", asked);
-  b.textContent = label; b.disabled = guestAlone || (versus && ready && opp.ready);
+  b.textContent = label; b.disabled = guestAlone || (versus && ready && !waiting.length);
   b.classList.toggle("go", !(versus && ready));
 }
 function renderControls(){
   const playing = isPlaying(), inp = $("guess"), lobby = inLobby();
   inp.disabled = !playing; if (!playing) { clearTimeout(holdTimer); setHint(); }
-  inp.placeholder = playing ? "Type a country" : counting() ? "Get ready" : !lobby ? "Waiting for the other player to finish" : round == null ? "Ready up to play" : "Round over";
+  inp.placeholder = playing ? "Type a country" : counting() ? "Get ready" : !lobby ? (rivals().length > 1 ? "Waiting for the others to finish" : "Waiting for the other player to finish") : round == null ? "Ready up to play" : "Round over";
   const gu = $("giveUp"); gu.hidden = !playing; if (!playing) disarmGiveUp();
   const act = document.activeElement;   // take focus only when nothing else has it
   if (playing && (!act || act === document.body) && !matchMedia("(pointer:coarse)").matches) inp.focus();
@@ -1250,12 +1295,12 @@ function accept(i){
 }
 function tryGuess(force){
   clearTimeout(holdTimer);
-  const inp = $("guess"), n = norm(inp.value), i = ANSWERS.get(n);
+  const inp = $("guess"), n = norm(inp.value), m = matchGuess(inp.value), i = m?.i;
   if (!isPlaying() || i == null) { setHint(); return; }
   const longer = longerAnswers(n);
   if (!found.has(i)) {
-    // Wait only if it could still become another country you don't have, or a longer name for this one
-    if (force || !longer.some(j => j === i || !found.has(j))) return accept(i);
+    // Wait only if it could still become another country you don't have, or a longer name for this one, or it's a near miss
+    if (force || !m.near && !longer.some(j => j === i || !found.has(j))) return accept(i);
     setHint(`${LIST[i].name} ↵`, "pending");
     holdTimer = setTimeout(() => tryGuess(true), HOLD_MS);
     return;
@@ -1264,6 +1309,48 @@ function tryGuess(force){
   setHint("Already found", "dup");
   const clear = () => { if (norm(inp.value) === n) { inp.value = ""; setHint(); } };
   if (force) clear(); else holdTimer = setTimeout(clear, DUP_MS);
+}
+// Near misses, kept tight. Checked only when what's typed is no answer and not the start of one, and they never count
+// at once: they show what they will count as and wait for Enter or a pause, like a short name that could grow.
+// - Letters in a slightly wrong order: the same letters with one adjacent pair swapped ("itlay"), or two pairs for
+//   names of 8 letters or more ("gemrnay"). Names of 5 letters or more.
+// - One typo (a letter missing, extra or wrong) in names of 7 letters or more ("germny", "argentinna").
+// - Only when exactly one country is that close; and never for input containing a slur or obscenity.
+const BLOCK = /nig+[ae]r|nigg|fag|fuck|shit|cunt|rape|nazi|kike|spic|chink|slut|whore|bitch|retard|trann|twat|wank|coon|dick|cock|puss/;
+function swapsTo(a, b){   // adjacent swaps that turn a into b, or -1 if that's not how they differ
+  if (a.length !== b.length) return -1;
+  let n = 0;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] === b[i]) continue;
+    if (a[i] === b[i + 1] && a[i + 1] === b[i]) { n++; i++; } else return -1;
+  }
+  return n;
+}
+function oneEdit(a, b){   // exactly one letter missing, extra or different
+  if (Math.abs(a.length - b.length) > 1 || a === b) return false;
+  let i = 0, j = 0, edits = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) { i++; j++; continue; }
+    if (++edits > 1) return false;
+    if (a.length > b.length) i++; else if (b.length > a.length) j++; else { i++; j++; }
+  }
+  return edits + (a.length - i) + (b.length - j) === 1;
+}
+function nearMatch(n){
+  if (n.length < 5 || BLOCK.test(n)) return null;
+  const hits = new Set();
+  for (const k of ANSWER_KEYS) {
+    const sw = swapsTo(n, k);
+    if ((sw === 1 && k.length >= 5) || (sw === 2 && k.length >= 8) || (k.length >= 7 && oneEdit(n, k))) hits.add(ANSWERS.get(k));
+  }
+  return hits.size === 1 ? [...hits][0] : null;
+}
+// What a guess counts as: {i, near} (near: a near miss), or null
+function matchGuess(text){
+  const n = norm(text);
+  if (ANSWERS.has(n)) return {i: ANSWERS.get(n), near: false};
+  if (longerAnswers(n).length) return null;   // still typing a longer name
+  const i = nearMatch(n); return i == null ? null : {i, near: true};
 }
 $("guess").addEventListener("input", () => tryGuess(false));
 $("guess").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); tryGuess(true); } });
@@ -1321,7 +1408,7 @@ function ingestPlayers(r, docs){
     if (!okUid(uid) || !d || typeof d !== "object") continue;
     const got = Array.isArray(d.got) ? d.got.slice(0, TOTAL).map(Number).filter(i => LIST[i]) : null;
     if (uid === me && got) for (const i of got) if (!found.has(i)) found.set(i, {by: me, at: 0});
-    mergePlayer(uid, {joinedAt: +d.joinedAt || 0, count: +d.count || 0, doneAt: +d.doneAt || null, got, color: d.color, name: d.name});
+    mergePlayer(uid, {joinedAt: okTime(d.joinedAt) || 0, count: Math.min(TOTAL, Math.max(0, +d.count || 0)), doneAt: okTime(d.doneAt), got, color: d.color, name: d.name});
   }
   const mineP = players.get(me);
   if (mineP) { myJoined = myJoined || mineP.joinedAt; myDone = myDone || mineP.doneAt || null; }
@@ -1360,11 +1447,16 @@ function onRoomPeers(peers){
   syncDur();
   tick(); render(); maybeStart();
 }
-// ---- multiplayer: a direct link between the two browsers (WebRTC through PeerJS).
-// PeerJS's public broker is used only to find the other browser; game data goes browser to browser.
-// The host's page holds the game (round, start time, each player's record) and relays it to the guest.
-const ID_PREFIX = "country-race-game-", CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789", DROP_MS = 8000;
-let code = null, isHost = false, peer = null, conn = null, remote = null, lastHeard = 0, dialAt = 0, full = false;
+// ---- multiplayer: direct links between browsers (WebRTC through PeerJS), host plus up to 5 guests.
+// PeerJS's public broker is used only to find the host; game data goes browser to browser.
+// The host's page holds the game (round, start time, each player's record) and relays it, and every guest's
+// presence, to all guests. Guests only talk to the host.
+const ID_PREFIX = "country-race-game-", CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789", DROP_MS = 8000, MAX_GUESTS = 5;
+let code = null, isHost = false, peer = null, conn = null, remote = null, lastHeard = 0, dialAt = 0, full = 0;   // guest: its link to the host; full: when the host last refused me
+const refused = () => Date.now() - full < 30000;
+let myProof = "";             // proves my id to the host in this game (see proofFor)
+const links = new Map();      // host: guest uid -> {c, uid, presence, at, heard}
+const others = new Map();     // guest: uid -> {presence, at} for the host and the other guests, as the host relays them
 let hostGame = null, hostDocs = {round: null, players: table()};   // host only
 const store = {
   get(k){ try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
@@ -1378,7 +1470,7 @@ function hostPutPlayer(r, uid, doc){
   if (hostDocs.round !== r || !okUid(uid) || !doc || typeof doc !== "object") return;
   // Keep only the known fields of a record that came from the other browser
   const got = Array.isArray(doc.got) ? doc.got.slice(0, TOTAL).map(Number).filter(i => Number.isInteger(i) && LIST[i]) : null;
-  hostDocs.players[uid] = {joinedAt: +doc.joinedAt || Date.now(), count: Math.min(TOTAL, Math.max(0, +doc.count || 0)), doneAt: +doc.doneAt || null, got, color: PALETTE[doc.color] ? doc.color : null, name: cleanName(doc.name)};
+  hostDocs.players[uid] = {joinedAt: okTime(doc.joinedAt) || Date.now(), count: Math.min(TOTAL, Math.max(0, +doc.count || 0)), doneAt: okTime(doc.doneAt), got, color: PALETTE[doc.color] ? doc.color : null, name: cleanName(doc.name)};
   // First to reach the host owns the country's color
   const own = ownerMap(); let changed = false;
   for (const i of got || []) if (!Object.hasOwn(own, i)) { own[i] = uid; changed = true; }
@@ -1389,23 +1481,55 @@ function hostPutPlayer(r, uid, doc){
   saveHost(); if (changed) send({t: "own", round: r, owner: own, flow: fl});
 }
 function setOwner(o){ guestOwner = cleanOwner(o); }
-function send(m){ if (conn?.open) try { conn.send(JSON.parse(JSON.stringify(m))); } catch {} }   // plain data on the wire
-function sendState(){ send({t: "state", game: hostGame, now: Date.now(), round: hostDocs.round, players: hostDocs.players, owner: ownerMap(), flow: flowMap()}); }
+// plain data on the wire; the host sends to every guest (but one, when relaying what that guest said)
+function sendOn(c, m){ if (c?.open) try { c.send(JSON.parse(JSON.stringify(m))); } catch {} }
+function send(m, skip){ if (isHost) { for (const l of links.values()) if (l.uid !== skip) sendOn(l.c, m); } else sendOn(conn, m); }
+function sendState(c){ sendOn(c, {t: "state", game: hostGame, now: Date.now(), round: hostDocs.round, players: hostDocs.players, owner: ownerMap(), flow: flowMap()}); }
 
+// Presence from another browser: only known fields, each of the expected type and range, and not too big.
+// On the host, rounds stay near its own, times stay near now, counts stay within the 197.
+const okTime = t => { t = +t; return Number.isFinite(t) && t > 0 && t < Date.now() + 3600e3 ? t : null; };
+function cleanPresence(pr){
+  if (!pr || typeof pr !== "object" || Array.isArray(pr)) return null;
+  try { if (JSON.stringify(pr).length > 4000) return null; } catch { return null; }
+  const r = pr.round === null ? null : Number.isInteger(pr.round) && pr.round >= 0 && pr.round <= (isHost ? Math.max(round || 0, hostDocs.round || 0) + 1 : 1e6) ? pr.round : undefined;   // a guest follows the host's rounds
+  if (r === undefined) return null;
+  return {uid: okUid(pr.uid) ? pr.uid : null, round: r, count: Math.min(TOTAL, Math.max(0, Math.floor(+pr.count) || 0)), done: okTime(pr.done), joinedAt: okTime(pr.joinedAt),
+    ready: pr.ready === true, dur: [0, 600, 900, 1200].includes(pr.dur) ? pr.dur : 900, durAt: okTime(pr.durAt) || 0,
+    got: Array.isArray(pr.got) ? [...new Set(pr.got.slice(0, TOTAL).map(Number).filter(i => Number.isInteger(i) && LIST[i]))] : null,
+    color: typeof pr.color === "string" && PALETTE[pr.color] ? pr.color : null, name: cleanName(pr.name)};
+}
+// Host: a message from one guest's link. The guest's id is the one it said hello with; ids inside messages are ignored.
+function onGuestMessage(m, l){
+  l.heard = Date.now();
+  if (!m || typeof m !== "object") return;
+  switch (m.t) {
+    case "presence":
+      { const pr = cleanPresence(m.pr); if (!pr) break;
+        l.presence = pr; l.at = Date.now(); send({t: "presence", uid: l.uid, pr}, l.uid); onRoomPeers(room.peers()); break; }
+    case "player":
+      hostPutPlayer(m.round, l.uid, m.doc); ingestPlayers(m.round, {[l.uid]: m.doc});
+      if (m.round === hostDocs.round && hostDocs.players[l.uid]) send({t: "player", round: m.round, uid: l.uid, doc: hostDocs.players[l.uid]}, l.uid);
+      break;
+    case "want": sendState(l.c); break;
+  }
+}
+// Guest: a message from the host
 function onMessage(m){
   lastHeard = Date.now();
   if (!m || typeof m !== "object") return;
   switch (m.t) {
-    case "hello": if (remote && okUid(m.uid)) { remote.uid = m.uid; render(); } break;
-    case "presence":
-      if (!remote || !m.pr || typeof m.pr !== "object") break;
-      if (!remote.uid && okUid(m.pr.uid)) remote.uid = m.pr.uid;
-      remote.presence = m.pr; remote.at = Date.now(); onRoomPeers(room.peers()); break;
-    case "player":
-      if (isHost) { if (!remote?.uid) break; hostPutPlayer(m.round, remote.uid, m.doc); ingestPlayers(m.round, {[remote.uid]: m.doc}); }
-      else if (okUid(m.uid) && m.uid !== me) ingestPlayers(m.round, {[m.uid]: m.doc});
-      break;
-    case "want": if (isHost) sendState(); break;
+    // The host's hello means it has checked my proof; what I sent before that may have been dropped, so send it again
+    case "hello": if (remote && okUid(m.uid)) { remote.uid = m.uid; lastPresence = ""; render(); pushPresence(); sync(); } break;
+    case "presence": {
+      const pr = cleanPresence(m.pr); if (!remote || !pr) break;
+      if (!remote.uid && !m.uid && pr.uid) remote.uid = pr.uid;
+      const uid = m.uid === undefined ? remote.uid : m.uid;   // no id: the host's own
+      if (!okUid(uid) || uid === me) break;
+      others.set(uid, {presence: pr, at: Date.now()}); onRoomPeers(room.peers()); break;
+    }
+    case "gone": if (okUid(m.uid) && others.delete(m.uid)) { onRoomPeers(room.peers()); render(); } break;
+    case "player": if (okUid(m.uid) && m.uid !== me) ingestPlayers(m.round, {[m.uid]: m.doc}); break;
     case "own": if (!isHost && round != null && m.round === round) { setOwner(m.owner); if (m.flow) setFlow(m.flow); render(); } break;
     case "start":
       // The start signal carries a countdown length, not a clock time, so both screens count down together
@@ -1421,34 +1545,64 @@ function onMessage(m){
       if (g && m.round === round) { setOwner(m.owner); if (m.flow) setFlow(m.flow); ingestPlayers(round, m.players); }
       break;
     }
-    case "full": full = true; setStatus("This game already has two players."); try { conn?.close(); } catch {} break;
+    case "full": full = Date.now(); setStatus("This game is full: it already has six players. Trying again in a moment."); try { conn?.close(); } catch {} break;
+    case "taken": full = Date.now(); setStatus("The host couldn't confirm who you are. Trying again in a moment."); try { conn?.close(); } catch {} break;
   }
 }
-function attach(c, uid){
+// Guest: the link to the host is up
+function attach(c){
   if (conn && conn !== c) try { conn.close(); } catch {}
-  conn = c; remote = {uid, presence: null, at: 0}; lastHeard = Date.now(); lastPresence = "";
+  conn = c; remote = {uid: null}; others.clear(); lastHeard = Date.now(); lastPresence = "";
   const gone = () => { if (c === conn) dropped(); };
   c.on("close", gone); c.on("error", gone);
   setStatus("");
 }
 function dropped(){
-  const had = !!remote?.presence; conn = null; remote = null;
-  if (had) toast("The other player disconnected");
-  setStatus(isHost ? "The other player disconnected. They can rejoin with the same link." : "Lost the connection to the host. Reconnecting…");
+  conn = null; remote = null; others.clear();
+  if (refused()) { onRoomPeers([]); render(); return; }   // refused: keep that message; the heartbeat tries again later
+  setStatus("Lost the connection to the host. Reconnecting…");
   onRoomPeers([]); render();
-  if (!isHost) { dialAt = 0; setTimeout(dial, 1500); }
+  dialAt = 0; setTimeout(dial, 1500);
+}
+// Player ids prove themselves. Each browser keeps one random secret (localStorage) that never leaves it. For each
+// game it sends a proof, HMAC-SHA256(secret, game code), and its id is derived from that proof ("p" + the first
+// 24 hex digits of its SHA-256). The host only checks that the id matches the proof: knowing someone's id (ids are
+// public) doesn't give their proof, there is nothing to claim first, and a proof is only good for its own game,
+// so the host of one game learns nothing it could use in another. Proofs go only in hello and are never relayed.
+const enc = t => new TextEncoder().encode(t), hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+const okProof = k => typeof k === "string" && /^[0-9a-f]{64}$/.test(k);
+async function proofFor(secret, c){ const k = await crypto.subtle.importKey("raw", enc(secret), {name: "HMAC", hash: "SHA-256"}, false, ["sign"]); return hex(await crypto.subtle.sign("HMAC", k, enc("country-race:" + c))); }
+async function idOf(proof){ return "p" + hex(await crypto.subtle.digest("SHA-256", enc(proof))).slice(0, 24); }
+// Host: a guest said hello. The same player coming back (after a reload) replaces their old link.
+function attachGuest(c, uid){
+  const old = links.get(uid); if (old && old.c !== c) try { old.c.close(); } catch {}
+  const l = {c, uid, presence: null, at: 0, heard: Date.now()}; links.set(uid, l);
+  const gone = () => { if (links.get(uid) === l) guestDropped(l); };
+  c.on("close", gone); c.on("error", gone);
+  c.on("data", m => { if (links.get(uid) === l) onGuestMessage(m, l); });
+  setStatus("");
+  sendOn(c, {t: "hello", uid: me});
+  for (const o of links.values()) if (o !== l && o.presence) sendOn(c, {t: "presence", uid: o.uid, pr: o.presence});
+  lastPresence = ""; pushPresence(); sendState(c); render();
+}
+function guestDropped(l){
+  const name = nameOf(l.uid); links.delete(l.uid); try { l.c.close(); } catch {}
+  if (l.presence) toast(`${name} disconnected`);
+  setStatus(`${links.size ? name : "The other player"} disconnected. They can rejoin with the same link.`);
+  send({t: "gone", uid: l.uid}); onRoomPeers(room.peers()); render();
 }
 function openHost(){
   peer = new Peer(ID_PREFIX + code, {debug: 0});
   peer.on("open", () => setStatus(""));
   peer.on("connection", c => {
-    c.on("data", m => {
-      if (c === conn) return onMessage(m);
-      if (m?.t !== "hello" || !okUid(m.uid)) return;
-      // One guest per game; the same player coming back (after a reload) replaces their old link
-      if (conn?.open && remote?.uid && remote.uid !== m.uid && Date.now() - lastHeard < DROP_MS) { c.send({t: "full"}); setTimeout(() => c.close(), 500); return; }
-      attach(c, m.uid);
-      send({t: "hello", uid: me}); sendState(); render();
+    let said = false;
+    c.on("data", async m => {
+      if (said || m?.t !== "hello" || !okUid(m.uid) || m.uid === me) return;
+      said = true;
+      if (!okProof(m.key) || await idOf(m.key) !== m.uid) { sendOn(c, {t: "taken"}); setTimeout(() => c.close(), 500); return; }
+      const live = [...links.values()].filter(l => l.uid !== m.uid && l.c.open && Date.now() - l.heard < DROP_MS).length;
+      if (live >= MAX_GUESTS) { sendOn(c, {t: "full"}); setTimeout(() => c.close(), 500); return; }
+      attachGuest(c, m.uid);
     });
   });
   peer.on("error", e => {
@@ -1466,21 +1620,23 @@ function openGuest(){
   });
 }
 function dial(){
-  if (full || conn?.open || !peer?.open || Date.now() - dialAt < 6000) return;
+  if (refused() || conn?.open || !peer?.open || Date.now() - dialAt < 6000) return;
   dialAt = Date.now();
   const c = peer.connect(ID_PREFIX + code, {reliable: true});
-  c.on("open", () => { attach(c, null); c.send({t: "hello", uid: me}); sync(); render(); });   // sync: anything found while the link was down
+  c.on("open", () => { attach(c); c.send({t: "hello", uid: me, key: myProof}); sync(); render(); });   // sync: anything found while the link was down
   c.on("data", m => { if (c === conn) onMessage(m); });
 }
 // Every 2 seconds: keep the link alive, notice a silent drop, and reconnect what broke.
 function heartbeat(){
   if (!peer || peer.destroyed) { peer = null; return isHost ? openHost() : openGuest(); }
   if (peer.disconnected) { try { peer.reconnect(); } catch {} }
-  if (conn) {
+  if (isHost) {
+    for (const l of [...links.values()]) { if (l.c.open) sendOn(l.c, {t: "ping"}); if (Date.now() - l.heard > DROP_MS) guestDropped(l); }
+  } else if (conn) {
     if (conn.open) send({t: "ping"});
     if (Date.now() - lastHeard > DROP_MS) { const c = conn; try { c.close(); } catch {} if (c === conn) dropped(); }
-  } else if (!isHost) dial();
-  if (!isHost && !conn && dialAt && Date.now() - dialAt > 5000 && !full && peer.open)
+  } else dial();
+  if (!isHost && !conn && dialAt && Date.now() - dialAt > 5000 && !refused() && peer.open)
     setStatus("Can't reach the host yet. Check the code, or ask them to open the game.");
 }
 
@@ -1506,11 +1662,14 @@ async function boot(){
   const q = cleanCode(new URLSearchParams(location.search).get("join"));
   if (q.length >= 4) {
     code = q; shared = true; isHost = !!store.get(hostKey(code));
-    me = store.get("country-race-uid");
-    if (!okUid(me)) { me = "p" + newCode() + newCode(); store.set("country-race-uid", me); }
+    let secret = store.get("country-race-secret");
+    if (typeof secret !== "string" || !/^[A-Z0-9]{40}$/.test(secret)) { secret = Array.from({length: 8}, newCode).join(""); store.set("country-race-secret", secret); }
+    if (crypto.subtle) { myProof = await proofFor(secret, code); me = await idOf(myProof); }
+    else { me = "p" + newCode() + newCode(); setStatus("Racing a friend needs a secure (https) page."); }
     room = {
-      peers: () => remote?.uid && remote.presence && conn?.open ? [{kind: "viewer", by: remote.uid, presence: remote.presence, updatedAt: remote.at}] : [],
-      presence: pr => { send({t: "presence", pr}); return Promise.resolve(); }
+      peers: () => isHost ? [...links.values()].filter(l => l.presence && l.c.open).map(l => ({kind: "viewer", by: l.uid, presence: l.presence, updatedAt: l.at}))
+        : conn?.open ? [...others].map(([uid, o]) => ({kind: "viewer", by: uid, presence: o.presence, updatedAt: o.at})) : [],
+      presence: pr => { send(isHost ? {t: "presence", uid: me, pr} : {t: "presence", pr}); return Promise.resolve(); }
     };
   }
   setupRoom();
@@ -1520,7 +1679,7 @@ async function boot(){
   if (isHost) { const s = store.get(hostKey(code)) || {}; hostGame = s.game || null; hostDocs = cleanDocs(s.docs); if (hostGame) applyState(hostGame); openHost(); }
   else openGuest();
   setInterval(heartbeat, 2000);
-  addEventListener("pagehide", () => { try { conn?.close(); peer?.destroy(); } catch {} });
+  addEventListener("pagehide", () => { try { conn?.close(); links.forEach(l => l.c.close()); peer?.destroy(); } catch {} });
 }
 boot();
 </script>
