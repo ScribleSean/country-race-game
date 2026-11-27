@@ -1,21 +1,41 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Country Race</title>
 <meta name="description" content="A live race for up to six players to name every country in the world.">
-<meta name="theme-color" content="#edeae5">
+<meta name="theme-color" content="#edeae5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1f1e1b" media="(prefers-color-scheme: dark)">
 <style>
 /* Layout: the whole game fits the screen and the page itself never scrolls.
    Top: scoreboard and clock. Wide screens: input above the map, country list in a column beside it.
-   Narrow screens: input, then the list, then the map; once the round is over the map moves above the list.
-   One calm light look, the same in every viewer theme: warm paper and gray for everything on the page.
-   The only strong colors are the players' own. */
+   Narrow screens, racing: input, then a Map / List switch; the chosen one fills the rest. Once the round is over
+   the map sits above the list.
+   Warm paper and greys for everything on the page, light or dark with the system; the only strong colors are the
+   players' own. The map keeps its own paper in both: the players' colors need a light land and sea to stand out
+   (3:1 or better, checked by the tests), so in dark mode it is a dimmed sheet inside dark chrome. */
 :root{
-  color-scheme:light;
+  color-scheme:light dark;
   --bg:#edeae5; --surface:#f4f1ec; --raised:#faf8f4; --text:#292d28; --muted:#5b6056; --faint:#8a8e84; --track:#dedcd4; --line:#dcd8d0;
-  --ocean:#d9e2e4; --land:#f6f3ec; --offmap:#e7e6df; --border:#b9b4a7; --shared:#c8c2b3;
-  --err:#a23b32;
+  --err:#a23b32; --edge:rgba(41,45,40,.28); --shadow:rgba(40,35,25,.16);
+  --ring-ui:#292d28;   /* "shared" ring on dots in lists and keys */
+  --nobody:#f6f3ec;    /* "nobody named it" in lists and bars (on the map it is the land itself) */
+  --seg-on:#faf8f4;
+  /* the map */
+  --ocean:#d9e2e4; --land:#f6f3ec; --offmap:#e7e6df; --border:#b9b4a7; --ring:#292d28; --mk0:#ece8df;
+  --map-ink:#292d28; --map-muted:#5b6056; --map-faint:#8a8e84; --map-paper:#faf8f4;
+  /* spacing and type scales */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:24px;
+  --t-label:12.5px; --t-body:14px; --t-big:34px;
   --body:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   --maptext:"Helvetica Neue",Helvetica,Arial,sans-serif;   /* map names are drawn small and scaled: a face with fixed spacing, the one their widths are measured in */
   --r:10px; --gap:10px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#1f1e1b; --surface:#282724; --raised:#302e2a; --text:#ece8e1; --muted:#b3aea4; --faint:#8b867c; --track:#3b3934; --line:#3a3833;
+    --err:#e0796f; --edge:rgba(236,232,225,.22); --shadow:rgba(0,0,0,.45);
+    --ring-ui:#ece8e1; --nobody:#5a564e; --seg-on:#4a4740;
+    --ocean:#c8d2d6; --land:#e2ddd2; --offmap:#dad5ca; --border:#a7a194; --ring:#292d28; --mk0:#d6d0c4;
+    --map-paper:#ece8e1;
+  }
 }
 *{box-sizing:border-box}
 html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none}
@@ -30,20 +50,22 @@ button.go{background:var(--text);border-color:var(--text);color:var(--raised);fo
 button:hover:not(:disabled){filter:brightness(.97)}
 button.go:hover:not(:disabled){filter:brightness(1.25)}
 button:disabled{opacity:.5;cursor:not-allowed}
-button:focus-visible,select:focus-visible,input:focus-visible,.list:focus-visible,summary:focus-visible{outline:2px solid var(--text);outline-offset:2px}
+button:focus-visible,select:focus-visible,input:focus-visible,.list:focus-visible,summary:focus-visible{outline:2px solid var(--text);outline-offset:0}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 /* color keys: a round dot for a player or a state, everywhere */
-.sw,.dot{width:10px;height:10px;border-radius:50%;flex:none;display:inline-block;box-shadow:inset 0 0 0 1px rgba(41,45,40,.28)}
+.sw,.dot{width:10px;height:10px;border-radius:50%;flex:none;display:inline-block;box-shadow:inset 0 0 0 1px var(--edge)}
+/* named by two or more players: the first finder's color with a dark ring (a light gap keeps it visible on dark colors) */
+.sw.ring,.dot.ring{box-shadow:0 0 0 1.5px var(--raised),0 0 0 2.75px var(--ring-ui);margin:0 2px}
 button.link{border:0;background:none;padding:4px;color:var(--muted);font-weight:400;font-size:13px;text-decoration:underline;text-underline-offset:2px;align-self:flex-start}
-.lbl{font-size:13px;color:var(--muted);font-weight:600}
+.lbl{font-size:var(--t-label);color:var(--muted);font-weight:600}
 .num{font-variant-numeric:tabular-nums}
 /* one grouped control: a gray track with the chosen part raised */
 .seg{display:flex;background:var(--track);border-radius:9px;padding:2px;gap:2px;min-width:0}
 .seg button{border:0;background:none;color:var(--muted);border-radius:7px;font-size:13px;padding:4px 12px;min-height:32px}
-.seg button[aria-selected="true"],.seg button[aria-pressed="true"]{background:var(--raised);color:var(--text);box-shadow:0 1px 2px rgba(40,35,25,.12)}
+.seg button[aria-selected="true"],.seg button[aria-pressed="true"]{background:var(--seg-on);color:var(--text);box-shadow:0 1px 2px var(--shadow)}
 
 /* top: title, scoreboard, clock */
-.top{display:flex;align-items:center;gap:8px 28px;min-height:40px;flex:none}
+.top{display:flex;align-items:baseline;gap:8px 28px;min-height:40px;flex:none}   /* the clock sits on the first row's baseline when the chips wrap */
 h1{font-size:16px;font-weight:600;letter-spacing:-.3px;margin:0;white-space:nowrap}
 .board{display:flex;gap:28px;flex:1;min-width:0}
 .pchip{display:flex;align-items:baseline;gap:7px;min-width:0}
@@ -74,6 +96,10 @@ h1{font-size:16px;font-weight:600;letter-spacing:-.3px;margin:0;white-space:nowr
 #guess:disabled{opacity:.6;background:var(--surface)}
 .hint{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:13px;padding:3px 9px;border-radius:6px;background:var(--track);color:var(--muted);pointer-events:none;white-space:nowrap;max-width:60%;overflow:hidden;text-overflow:ellipsis}
 .hint.pending{color:var(--text);font-weight:500}
+/* phone, racing: Map / List switch under the input (Give up sits at its right) */
+.viewrow{display:none;align-items:center;justify-content:space-between;gap:var(--s2);min-width:0}
+.viewrow .seg button{min-width:5.5em;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.badge{font-size:11px;line-height:16px;min-width:16px;padding:0 5px;border-radius:999px;background:color-mix(in srgb,var(--text) 10%,transparent);color:var(--text);font-variant-numeric:tabular-nums;font-weight:600}
 
 /* country list */
 .panel{background:var(--surface);border-radius:12px;display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}
@@ -91,7 +117,7 @@ h1{font-size:16px;font-weight:600;letter-spacing:-.3px;margin:0;white-space:nowr
 .rvrow:focus-within{border-color:var(--text)}
 .rvrow input{flex:1 1 0;min-width:0;min-height:36px;font-size:16px;padding:4px 10px;border:0;background:none;-webkit-appearance:none;appearance:none}
 .rvrow select{flex:0 1 auto;min-width:0;max-width:50%;font-size:14px;font-weight:400;color:var(--muted);border:0;border-left:1px solid var(--line);border-radius:0;background-color:transparent;padding:4px 26px 4px 10px}
-.rvrow input:focus-visible,.rvrow select:focus-visible{outline-offset:-2px}
+.rvrow input:focus-visible,.rvrow select:focus-visible{outline:none}   /* the whole field shows focus on its own edge */
 /* who found it: the counts are the filter */
 .filters button{flex:1 1 auto;display:flex;flex-direction:column-reverse;align-items:flex-start;justify-content:center;gap:1px;padding:5px 7px;min-height:46px;min-width:0}
 .filters b{font-size:17px;line-height:1.15;font-weight:500;letter-spacing:-.3px;color:var(--text);font-variant-numeric:tabular-nums}
@@ -99,6 +125,7 @@ h1{font-size:16px;font-weight:600;letter-spacing:-.3px;margin:0;white-space:nowr
 .filters .sw{width:7px;height:7px}
 .list{flex:1;min-height:0;overflow-y:auto;padding:4px 12px 10px;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--track) transparent}
 .app[data-phase="done"] .list,.app[data-phase="wait"] .list{padding:0 6px 6px;border-top:1px solid var(--line)}
+.app[data-phase="done"] .list:focus-visible,.app[data-phase="wait"] .list:focus-visible{outline:none;border-top-color:var(--muted)}   /* the picked row shows where you are */
 .rv{display:flex;align-items:center;gap:9px;min-height:34px;padding:3px 8px;border-radius:7px;cursor:pointer;font-size:14px}
 .rv:first-child{margin-top:6px}
 .rv:hover{background:var(--bg)}
@@ -130,43 +157,60 @@ h1{font-size:16px;font-weight:600;letter-spacing:-.3px;margin:0;white-space:nowr
 #map{display:block;width:100%;height:100%;cursor:grab}
 /* land still to find is pale paper; a country only one player named is that player's color; one both named settles into quiet stone */
 #map .land{fill:var(--land);stroke:var(--border);stroke-width:.5;vector-effect:non-scaling-stroke;transition:fill .25s}
-#map .land.other{fill:var(--offmap);stroke:none}
+#map .land.other{fill:var(--offmap);stroke:var(--border)}
 #map .land.on{stroke:var(--land)}
-#map .land.sel{stroke:var(--text);stroke-width:2}
+#map .land.shared{stroke:var(--ring);stroke-width:1.3}
+#map .land.sel{stroke:var(--map-ink);stroke-width:2.5}
 .app[data-phase="done"] #map .land:not(.other),.app[data-phase="wait"] #map .land:not(.other),.app[data-phase="done"] #map .mk,.app[data-phase="wait"] #map .mk{cursor:pointer}
-#map .pin{fill:var(--faint);opacity:.45}
-/* small places: a white disc until someone names it, then the same solid color the land would get */
-#map .mk{fill:#fff;stroke:var(--muted);stroke-width:.9;vector-effect:non-scaling-stroke;transition:fill .25s}
-#map .mk.sel{stroke:var(--text);stroke-width:2.5}
-#map .mlabel{font-family:var(--maptext);font-weight:500;fill:var(--text);stroke:none;pointer-events:none}
+#map .pin{fill:var(--map-faint);opacity:.45}
+/* small places: a small, pale dot until someone names it; then a full-size dot in the color the land would get */
+#map .mk{fill:var(--mk0);stroke:var(--border);stroke-width:.6;vector-effect:non-scaling-stroke;transition:fill .25s}
+#map .mk.on{stroke:var(--map-paper);stroke-width:1}
+#map .mk.shared{stroke:var(--ring);stroke-width:1.5}
+#map .mk.sel{stroke:var(--map-ink);stroke-width:2.5}
+#map .mlabel{font-family:var(--maptext);font-weight:500;fill:var(--map-ink);stroke:none;pointer-events:none}
 #map .mlabel.out{stroke:var(--land);stroke-opacity:.8;paint-order:stroke;stroke-linejoin:round}
 #map .mlabel.onfill{fill:#fff}
-#map .mlabel.missed{fill:var(--muted)}
+#map .mlabel.missed{fill:var(--map-muted)}
 #map .mlabel.sel{font-weight:600}
-#map .lead{stroke:var(--muted);stroke-width:.6;vector-effect:non-scaling-stroke;opacity:.6;pointer-events:none}
-.maptog{position:absolute;left:10px;top:10px;z-index:2;box-shadow:0 1px 3px rgba(40,35,25,.1)}
+#map .lead{stroke:var(--map-muted);stroke-width:.6;vector-effect:non-scaling-stroke;opacity:.6;pointer-events:none}
+.maptog{position:absolute;left:10px;top:10px;z-index:2;box-shadow:0 1px 3px var(--shadow)}
 /* two separate switches: a check marks each one that is on */
 .maptog button::before{content:"";display:inline-block;width:9px;height:5px;margin:0 7px 3px 0;border-left:1.5px solid transparent;border-bottom:1.5px solid transparent;transform:rotate(-45deg)}
 .maptog button[aria-pressed="true"]::before{border-color:currentColor}
 #togMore{display:none}
+.legend.inline{position:static;align-self:flex-start;margin:0 12px 10px;padding:0;background:none}
 .legend{position:absolute;left:10px;bottom:10px;display:flex;gap:12px;padding:5px 10px;border-radius:8px;background:color-mix(in srgb,var(--raised) 92%,transparent);font-size:12px;color:var(--muted);pointer-events:none}
 .legend .key{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
-.count{position:absolute;inset:0;display:grid;place-items:center;font-size:clamp(56px,14vw,150px);font-weight:500;letter-spacing:-.03em;font-variant-numeric:tabular-nums;color:var(--text);background:color-mix(in srgb,var(--ocean) 60%,transparent);pointer-events:none}
-.zoomctl{position:absolute;right:10px;bottom:10px;display:flex;z-index:3;background:var(--raised);border-radius:9px;box-shadow:0 1px 3px rgba(40,35,25,.14);overflow:hidden}
+.count{position:absolute;inset:0;display:grid;place-items:center;font-size:clamp(56px,14vw,150px);font-weight:500;letter-spacing:-.03em;font-variant-numeric:tabular-nums;color:var(--map-ink);background:color-mix(in srgb,var(--ocean) 60%,transparent);pointer-events:none}
+.zoomctl{position:absolute;right:10px;bottom:10px;display:flex;z-index:3;background:var(--raised);border-radius:9px;box-shadow:0 1px 3px var(--shadow);overflow:hidden}
 .zoomctl button{width:36px;height:36px;min-height:0;padding:0;font-size:17px;font-weight:400;color:var(--muted);border:0;border-radius:0;background:none}
 .zoomctl button+button{box-shadow:-1px 0 0 var(--line)}
 .zoomctl button[aria-expanded="true"]{background:var(--track);color:var(--text)}
 #togMore{font-size:13px;font-weight:600}
 
-/* lobby and results card */
-.sheet{position:absolute;inset:0;z-index:5;display:flex;overflow-y:auto;padding:8px;border-radius:12px;background:color-mix(in srgb,var(--bg) 72%,transparent);overscroll-behavior:contain}
-.card{margin:auto;width:min(100%,440px);background:var(--raised);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:16px;box-shadow:0 1px 0 rgba(0,0,0,.04),0 18px 50px rgba(40,35,25,.16)}
+/* lobby, results and history cards */
+.sheet{position:absolute;inset:0;z-index:5;display:flex;overflow-y:auto;padding:var(--s2) var(--s2) var(--s4);border-radius:12px;background:color-mix(in srgb,var(--bg) 72%,transparent);overscroll-behavior:contain}
+.card{margin:auto;width:min(100%,440px);background:var(--raised);border-radius:14px;padding:var(--s6);display:flex;flex-direction:column;gap:var(--s5);box-shadow:0 1px 0 rgba(0,0,0,.04),0 18px 50px var(--shadow)}
+.cmain,.cside{display:flex;flex-direction:column;gap:var(--s5);min-width:0}
+.chead{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s3)}
+.ctitle{display:flex;flex-direction:column;gap:var(--s1);min-width:0}
 .card h2{font-size:26px;line-height:1.1;font-weight:600;margin:0;letter-spacing:-.7px;text-wrap:balance}
-.sub{color:var(--muted);margin:-10px 0 0;font-size:15px;font-variant-numeric:tabular-nums}
+.sub{color:var(--muted);margin:0;font-size:15px;font-variant-numeric:tabular-nums}
 .sub:empty{display:none}
-.result{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 16px}
-.result.many{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 12px}
-.result.many .rstat .big{font-size:24px}
+button.quiet{min-height:32px;padding:4px 12px;font-size:13px;font-weight:500;color:var(--muted);background:var(--surface);border-color:transparent}
+button.quiet:hover:not(:disabled){color:var(--text)}
+.h2h{margin:-8px 0 0;font-size:13.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.h2h b{color:var(--text);font-weight:600}
+/* results: ranked scores, then the world, then the game over time; each section under a small label */
+.result{display:flex;flex-direction:column;gap:var(--s5);min-width:0}
+.rscores{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s3) var(--s4)}
+.rscores.solo{grid-template-columns:minmax(0,1fr)}
+.rscores.many{grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s3)}
+.rscores.many .rstat .big{font-size:26px}
+.rsec{display:flex;flex-direction:column;gap:var(--s3);padding-top:var(--s4);border-top:1px solid var(--line);min-width:0}
+.sech{display:flex;justify-content:space-between;align-items:baseline;gap:var(--s3);font-size:var(--t-label);font-weight:600;color:var(--muted);margin:0}
+.sech span{font-weight:400;color:var(--faint);font-variant-numeric:tabular-nums}
 /* more than two players: one row of filters that scrolls sideways, so the list keeps its room */
 .filters.many{overflow-x:auto;scrollbar-width:none;overscroll-behavior-x:contain}
 .filters.many::-webkit-scrollbar{display:none}
@@ -174,17 +218,18 @@ h1{font-size:16px;font-weight:600;letter-spacing:-.3px;margin:0;white-space:nowr
 .filters.many .k{max-width:6.5em;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .rstat{min-width:0;display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:0 7px}
 .rstat .rwho{font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rstat .big{grid-column:1/-1;font-size:34px;line-height:1.15;font-weight:500;letter-spacing:-1px;font-variant-numeric:tabular-nums}
+.rstat .big{grid-column:1/-1;font-size:var(--t-big);line-height:1.1;font-weight:500;letter-spacing:-1px;font-variant-numeric:tabular-nums;margin-top:2px}
 .rstat .small{grid-column:1/-1;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 /* the whole world as one bar: who named what */
-.split{grid-column:1/-1;display:flex;flex-direction:column;gap:9px;min-width:0}
-.splitbar{display:flex;height:12px;border-radius:4px;overflow:hidden;background:var(--track);gap:1px}
+.split{display:flex;flex-direction:column;gap:10px;min-width:0}
+.splitbar{display:flex;height:12px;border-radius:4px;overflow:hidden;background:var(--track);gap:2px;padding:0}
 .splitbar i{min-width:0}
+.splitbar i.ring{background:var(--raised)!important;box-shadow:inset 0 0 0 1.5px var(--ring-ui);min-width:4px}
 .splitkey{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 .splitkey span{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
 .splitkey b{font-weight:500;color:var(--text)}
 /* game flow: countries found over time, who was ahead, the final margin */
-.flow{grid-column:1/-1;display:flex;flex-direction:column;gap:8px;min-width:0}
+.flow{display:flex;flex-direction:column;gap:8px;min-width:0}
 .flow svg{display:block;max-width:100%;height:auto;overflow:visible}
 .flow .fbase{stroke:var(--line);stroke-width:1}
 .flow .fline{fill:none;stroke-width:1.75;stroke-linejoin:round;stroke-linecap:round}
@@ -193,15 +238,16 @@ h1{font-size:16px;font-weight:600;letter-spacing:-.3px;margin:0;white-space:nowr
 .flow .fmargin{font-size:12px;font-weight:600;fill:var(--muted);font-variant-numeric:tabular-nums}
 .flow .fsum{margin:0;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 .codebox{display:flex;align-items:center;gap:12px;background:var(--surface);border-radius:var(--r);padding:8px 8px 8px 14px}
+.codebox .lbl{font-weight:500;margin-right:-4px}
 .codebox b{font-size:22px;line-height:1;font-weight:600;letter-spacing:.14em;flex:1;font-variant-numeric:tabular-nums}
-.who{display:flex;flex-direction:column;gap:8px}
+.who{display:flex;flex-direction:column;gap:var(--s2)}
 .prow{display:flex;align-items:center;gap:8px;min-width:0}
 .prow .tag{margin-left:auto;font-size:13px;color:var(--faint)}
 .prow.ready .tag{color:var(--text);font-weight:500}
 .who .empty{padding:0}
 details.setup{border-top:1px solid var(--line)}
-details.setup summary{cursor:pointer;font-weight:600;color:var(--muted);font-size:13px;padding:14px 0 0}
-details.setup[open] summary{margin-bottom:12px}
+details.setup summary{cursor:pointer;font-weight:600;color:var(--muted);font-size:var(--t-label);padding:var(--s4) 0 0}
+details.setup[open] summary{margin-bottom:var(--s3)}
 .fields{display:flex;flex-direction:column;gap:12px}
 .field{display:flex;flex-direction:column;gap:6px;min-width:0}
 .field .lbl{font-weight:400}
@@ -220,16 +266,58 @@ details.setup[open] summary{margin-bottom:12px}
 .actions button{min-height:44px;font-size:15px}
 .actions .go{flex:1 1 160px}
 .note{color:var(--muted);font-size:13px;margin:-8px 0 0;min-height:1em}
-.join{display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:16px}
+.join{display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:var(--s4)}
+.cfoot{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);margin-top:calc(-1 * var(--s2))}
+.cfoot .link{align-self:center;margin-left:-4px}
 .join #code{flex:1 1 90px;min-width:0;text-transform:uppercase}
 .join #code::placeholder{text-transform:none}
-.credit{color:var(--faint);font-size:12px;margin:0}
+.credit{color:var(--faint);font-size:12px;margin:0 0 0 auto}
+/* history: kept in this browser only */
+.hcard{width:min(100%,920px)}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s3)}
+.tile{background:var(--surface);border-radius:12px;padding:14px 16px;min-width:0}
+.tile .lbl{font-weight:500;display:block}
+.tile b{display:block;font-size:28px;line-height:1.1;font-weight:500;letter-spacing:-.8px;margin-top:6px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile b small{font-size:14px;font-weight:400;color:var(--muted);letter-spacing:0;margin-left:4px}
+.hgrid{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s5)}
+.hsec{display:flex;flex-direction:column;gap:var(--s2);min-width:0}
+.htable{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:13.5px;table-layout:fixed}
+.htable th{font-size:12px;font-weight:500;color:var(--muted);text-align:left;padding:0 8px 7px;border-bottom:1px solid var(--line);white-space:nowrap}
+.htable td{padding:8px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.htable tr:last-child td{border-bottom:0}
+.htable th:first-child,.htable td:first-child{padding-left:0}
+.htable th:last-child,.htable td:last-child{padding-right:0}
+.htable .r{text-align:right}
+.htable th.r{width:4.8em}
+.htable th.when{width:5.6em}
+.htable th.wide{width:7em}
+.htable .m{color:var(--muted)}
+.htable .vs{display:flex;align-items:center;gap:6px;min-width:0}
+.htable .vs span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;color:var(--muted)}
+.pill.won{background:var(--track);color:var(--text);font-weight:600}
+.mbar{display:inline-block;height:5px;border-radius:3px;background:var(--border);vertical-align:middle;margin-right:8px}
+.hempty{margin:0;color:var(--faint);font-size:13px;padding:4px 0}
+@media (min-width:760px){
+  .hgrid{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:var(--s6) 32px}
+  .hside{display:flex;flex-direction:column;gap:var(--s6);min-width:0}
+}
+@media (max-width:759px){
+  /* phone: History is one plain scrolling page, no card inside the sheet */
+  #histSheet{padding:0;background:var(--raised);scrollbar-width:none}
+  #histSheet::-webkit-scrollbar{display:none}
+  #histSheet .hcard{margin:0;width:100%;min-height:100%;border-radius:0;box-shadow:none;background:none}
+}
+@media (max-width:759px){ .hide-n{display:none} .hside{display:contents} .htable th.r{width:4.8em} .htable td,.htable th{padding-left:6px;padding-right:6px} .htable th.when{width:4.8em} .htable th.wide{width:6.2em} }
 #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--text);color:var(--raised);padding:8px 14px;border-radius:8px;font-size:13px;font-weight:500;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20;max-width:90vw;text-align:center}
 #toast.on{opacity:1}
 
 .app[data-phase="done"] .play,.app[data-phase="wait"] .play{display:none}
 /* round over: rematch (or play again) is one tap, always on screen under the results and the review */
 .again{flex:none;display:flex;align-items:center;gap:10px;background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:6px 6px 6px 14px;min-width:0;width:100%;align-self:center}
+.again.bare{padding-left:6px}
+.again.bare p{display:none}
+.again.bare button{flex:1 1 auto}
 .again p{flex:1;min-width:0;margin:0;font-size:14px;color:var(--muted);display:flex;align-items:center;gap:8px;line-height:1.25}
 .again p span{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .again b{color:var(--text);font-weight:600}
@@ -258,14 +346,32 @@ details.setup[open] summary{margin-bottom:12px}
   .plead,.ptag{padding:2px 6px}
   /* round over: the map leads, the list sits under it */
   .app[data-phase="done"] .main,.app[data-phase="wait"] .main{grid-template-rows:auto minmax(96px,1fr)}
-  .app[data-phase="done"] .mapwrap,.app[data-phase="wait"] .mapwrap{order:-1;height:min(58vw,calc(var(--vh,100dvh) * .34))}
+  .app[data-phase="done"] .mapwrap,.app[data-phase="wait"] .mapwrap{order:-1;height:min(66vw,calc(var(--vh,100dvh) * .36))}
+  /* round over: the small map is for looking (pinch to zoom); the list picks and zooms, so no button cluster over it */
+  .app[data-phase="done"] .zoomctl,.app[data-phase="wait"] .zoomctl,.app[data-phase="done"] .maptog,.app[data-phase="wait"] .maptog{display:none}
   .app[data-phase="home"] .top,.app[data-phase="lobby"] .top{display:none}
-  .card{padding:18px}
+  .card{padding:var(--s5) 18px}
+  .tiles{gap:var(--s2)}
+  .tile{padding:12px}
+  .tile b{font-size:24px}
 }
 @media (min-width:900px){.again{width:min(100%,440px)}}
+/* phone, racing: the Map / List switch; whichever is chosen fills the rest of the screen */
+@media (max-width:899px) and (min-height:481px){
+  .app[data-phase="race"] .viewrow,.app[data-phase="count"] .viewrow{display:flex}
+  .app[data-phase="race"] .main,.app[data-phase="count"] .main{grid-template-rows:auto auto minmax(0,1fr)}
+  .app[data-phase="race"][data-pview="map"] .panel,.app[data-phase="count"][data-pview="map"] .panel{display:none}
+  .app[data-phase="race"][data-pview="map"] .mapwrap,.app[data-phase="count"][data-pview="map"] .mapwrap{height:auto}
+  .app[data-phase="race"][data-pview="list"] .mapwrap,.app[data-phase="count"][data-pview="list"] .mapwrap{display:none}
+}
+/* wide results: scores and charts on the left, the game and its settings on the right */
+@media (min-width:900px){
+  .app[data-phase="done"] #sheet .card{width:min(100%,880px);display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:0 28px;align-items:start}
+  .app[data-phase="done"] .cside{border-left:1px solid var(--line);padding-left:28px;align-self:stretch}
+}
 /* short phones: the rematch bar takes a row, so the review map gives up a little height to keep the list usable */
 @media (max-width:899px) and (max-height:740px) and (orientation:portrait){
-  .app[data-phase="done"] .mapwrap{height:min(58vw,calc(var(--vh,100dvh) * .28))}
+  .app[data-phase="done"] .mapwrap{height:min(60vw,calc(var(--vh,100dvh) * .28))}
 }
 @media (max-width:899px) and (max-height:480px) and (orientation:landscape){
   .main{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
@@ -309,6 +415,12 @@ details.setup[open] summary{margin-bottom:12px}
         <span class="hint" id="hint" hidden aria-live="polite"></span>
       </div>
     </div>
+    <div class="viewrow" id="viewrow">
+      <div class="seg" id="pview" role="tablist" aria-label="Show">
+        <button type="button" role="tab" data-v="map" aria-selected="true">Map</button>
+        <button type="button" role="tab" data-v="list" aria-selected="false">List<span class="badge" id="listBadge" hidden></span></button>
+      </div>
+    </div>
     <aside class="panel" id="panel" aria-label="Countries found">
       <div class="panelhead">
         <div class="tabs seg" id="tabs" role="tablist"></div>
@@ -328,6 +440,7 @@ details.setup[open] summary{margin-bottom:12px}
       </div>
       <div class="conts" id="conts" hidden></div>
       <div class="list" id="list" role="tabpanel" aria-label="Countries you found" tabindex="0"></div>
+      <div class="legend inline" id="legend2" aria-hidden="true" hidden></div>
     </aside>
     <div class="mapwrap">
       <svg id="map" viewBox="0 0 960 470" role="img" aria-label="World map"></svg>
@@ -346,11 +459,17 @@ details.setup[open] summary{margin-bottom:12px}
     </div>
     <section class="sheet" id="sheet" aria-labelledby="sheetTitle">
       <div class="card">
-        <h2 id="sheetTitle">Country Race</h2>
-        <p class="sub" id="sheetSub"></p>
+       <div class="cmain">
+        <div class="chead">
+          <div class="ctitle"><h2 id="sheetTitle">Country Race</h2><p class="sub" id="sheetSub"></p></div>
+          <button id="histBtn" type="button" class="quiet" hidden>History</button>
+        </div>
+        <p class="h2h" id="h2h" hidden></p>
         <div class="result" id="result" hidden></div>
+       </div>
+       <div class="cside">
         <div class="codebox" id="roomOn" hidden>
-          <b id="roomCode" aria-label="Game code"></b>
+          <span class="lbl">Code</span><b id="roomCode" aria-label="Game code"></b>
           <button id="copyBtn" type="button">Copy link</button>
         </div>
         <div class="who" id="players" hidden></div>
@@ -380,8 +499,20 @@ details.setup[open] summary{margin-bottom:12px}
           <input type="text" id="code" placeholder="Code" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Game code">
           <button id="joinBtn" type="button">Join</button>
         </div>
-        <button id="leaveBtn" type="button" class="link" hidden>Leave game</button>
-        <p class="credit">Map data: Natural Earth</p>
+        <div class="cfoot">
+          <button id="leaveBtn" type="button" class="link" hidden>Leave game</button>
+          <p class="credit">Map data: Natural Earth</p>
+        </div>
+       </div>
+      </div>
+    </section>
+    <section class="sheet" id="histSheet" aria-labelledby="histTitle" hidden>
+      <div class="card hcard">
+        <div class="chead">
+          <div class="ctitle"><h2 id="histTitle">History</h2></div>
+          <button id="histClose" type="button" class="quiet">Done</button>
+        </div>
+        <div id="histBody" class="cmain"></div>
       </div>
     </section>
   </main>
@@ -533,7 +664,10 @@ function beginRound(nr){
 
 const $ = id => document.getElementById(id);
 const toastEl = $("toast"); let toastT;
-function toast(msg){ toastEl.textContent = msg; toastEl.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(()=>toastEl.classList.remove("on"), 1800); }
+function toast(msg){
+  const bar = $("again"), top = bar.hidden ? null : bar.getBoundingClientRect().top;   // never over the rematch bar
+  toastEl.style.bottom = top != null ? `${Math.round(innerHeight - top + 10)}px` : "";
+  toastEl.textContent = msg; toastEl.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(()=>toastEl.classList.remove("on"), 1800); }
 
 function playerOrder(){ return [...players.entries()].sort((a,b)=>a[1].joinedAt-b[1].joinedAt).map(x=>x[0]); }
 function countOf(uid){ return uid === me ? found.size : (players.get(uid)?.count || 0); }
@@ -550,9 +684,8 @@ function hasLeft(uid){ return shared && uid !== me && (isHost || !!conn?.open) &
 // Clear but not loud colors. Each one stands out from the land and the sea (3:1 or better) and from
 // every other one, also for the common kinds of color blindness; tests/two-player.mjs checks both.
 const PALETTE = Object.assign(Object.create(null), {blue: "#6169D9", amber: "#857224", pink: "#B74997", green: "#2C4604", violet: "#631C6E", teal: "#016454"});
-// A country both players named gets this quiet color, which nobody can pick. Most of the map ends up this color,
-// so it sits between the pale land still to find and the players' own colors.
-const SHARED = "#C8C2B3";
+// A country two or more players named keeps the color of whoever named it first (the host decides) and gets a thin
+// dark outline that marks it as shared.
 // Black or white text, whichever reads better on a color
 function textOn(hex){
   const [r, g, b] = [1, 3, 5].map(i => { const v = parseInt(hex.slice(i, i + 2), 16) / 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
@@ -608,7 +741,7 @@ let pins = new Map(), shapes = new Map(), labels = new Map(), zoom;
 // Worked out from each shape's drawn area, in map units: the whole country, or its biggest island.
 // Each gets a round marker that follows the same color rules as the land.
 const SMALL = new Set(), markers = new Map(), SMALL_AREA = 10, SMALL_ISLAND = 6;
-let mkR = 4, mapS = 1, mapPad = [0, 0], zoomTo = () => {};
+let mkR = 4, mapS = 1, mapPad = [0, 0], zoomTo = () => {}, homeView = () => d3.zoomIdentity;
 // Map options, remembered on this device: country names, and the markers for small places
 const savedOn = key => { try { return localStorage.getItem(key) !== "0"; } catch { return true; } };
 let showNames = savedOn("country-race-show-names"), showMarkers = savedOn("country-race-show-markers");
@@ -618,8 +751,11 @@ function sizeMarkers(){
   if (!(s > 0)) return;
   mapS = s; mapPad = [(box.width / s - 960) / 2, (box.height / s - 470) / 2];   // the map is centered in its box; this much shows around it
   mkR = (s < 0.6 ? 4 : 5) / s / Math.pow(curK, 0.75);
-  markers.forEach(m => m.attr("r", mkR));
+  markers.forEach((m, i) => m.attr("r", mkSize(i)));
 }
+// Small places still to find get a small, quiet dot; once named (or picked in the review) it is full size
+const MK_QUIET = 0.5;
+function mkSize(i){ const m = markers.get(i); return m && (m.classed("on") || m.classed("sel")) ? mkR : mkR * MK_QUIET; }
 // Names: a name that fits inside its country sits at the country's visual center (the point deepest inside its
 // main landmass). A small place, an island or a country too small for its name gets the name next to its dot,
 // moved to the nearest free spot (with a thin line back to the dot) when that spot is taken. A small place
@@ -777,7 +913,23 @@ async function drawMap(){
   const ZOOM_MS = matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 250;
   $("zin").onclick = () => svg.transition().duration(ZOOM_MS).call(zoom.scaleBy, 1.8);
   $("zout").onclick = () => svg.transition().duration(ZOOM_MS).call(zoom.scaleBy, 1/1.8);
-  $("zreset").onclick = () => svg.transition().duration(ZOOM_MS).call(zoom.transform, d3.zoomIdentity);
+  // Home view. A phone's map is tall and narrow: the whole world would sit small in the middle with sea above and
+  // below, so home zooms in until the inhabited latitudes (60°S to 80°N, a little sea to spare) fill the height,
+  // centered on Africa and Europe; the rest is a pan away, and ⤢ switches between this and the whole world.
+  // Everywhere else home is the whole world.
+  const band = [proj([0, 80])[1], proj([0, -60])[1]], cx = proj([12, 20])[0];   // 12°E: the right edge falls short of India on small phones, not through it
+  homeView = () => {
+    const box = svg.node().getBoundingClientRect(); if (!narrow.matches || !(box.width > 0) || box.height / box.width < 0.75) return d3.zoomIdentity;
+    const s = box.width / 960, padY = (box.height / s - 470) / 2, k = Math.min(16, (box.height / s) / (band[1] - band[0]));
+    if (k < 1.15) return d3.zoomIdentity;
+    return d3.zoomIdentity.translate(Math.min(0, Math.max(960 - 960 * k, 480 - k * cx)), Math.min(0, Math.max(470 - 470 * k, -padY - k * band[0]))).scale(k);
+  };
+  let userWorld = false;   // chose the whole world with ⤢: a resize (the keyboard opening) doesn't undo that
+  $("zreset").onclick = () => {
+    const h = homeView(), t = d3.zoomTransform(svg.node()), atHome = Math.abs(t.k - h.k) < 1e-3 && Math.abs(t.x - h.x) < 0.5 && Math.abs(t.y - h.y) < 0.5;
+    userWorld = atHome && h.k > 1;
+    svg.transition().duration(ZOOM_MS).call(zoom.transform, userWorld ? d3.zoomIdentity : h);
+  };
   // Bring one country into view (used by the review list)
   zoomTo = i => {
     const c = LIST[i]; if (!c?.xy) return;
@@ -788,7 +940,12 @@ async function drawMap(){
     svg.transition().duration(ZOOM_MS).call(zoom.transform, d3.zoomIdentity.translate(clamp(480 - k * (x0 + x1) / 2, 960 - 960 * k), clamp(235 - k * (y0 + y1) / 2, 470 - 470 * k)).scale(k));
   };
   sizeMarkers();
-  if (window.ResizeObserver) new ResizeObserver(() => { sizeMarkers(); queueLayout(curK); }).observe(svg.node());
+  // When the map's box changes (phone Map view, round over, rotation) and the map is still at home, move to the new home
+  const near = (a, b) => Math.abs(a.k - b.k) < 1e-3 && Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5;
+  let home = d3.zoomIdentity;
+  const fitHome = () => { const t = d3.zoomTransform(svg.node()), h = homeView(); if ((near(t, home) || near(t, d3.zoomIdentity) && !userWorld) && !near(t, h)) svg.call(zoom.transform, h); home = h; };
+  fitHome();
+  if (window.ResizeObserver) new ResizeObserver(() => { sizeMarkers(); fitHome(); queueLayout(curK); }).observe(svg.node());
 }
 
 // ---- render
@@ -816,40 +973,63 @@ let rvFilter = "all", rvRegion = "all", rvQuery = "", sel = null, rvScope = "";
 const stateOf = new Map();   // country -> "me" | "opp" (one other player) | "both" (two or more players) | "none", as last drawn
 const fillAt = new Map();    // country -> its color, as last drawn
 let view = {};               // what the last draw worked out, for the list and the review
+// Phone, racing: Map or List fills the screen under the input (Map first). Finds made while on the map are
+// counted on the List tab until it is opened.
+let pview = "map", listSeen = 0, roundColor = null;   // roundColor: my color when this round started
+const narrow = matchMedia("(max-width: 899px) and (min-height: 481px)");
+function renderView(ph){
+  const app = $("app"); app.dataset.pview = pview;
+  if (pview === "list" || !narrow.matches) listSeen = found.size;
+  for (const b of $("pview").querySelectorAll("button")) b.setAttribute("aria-selected", String(b.dataset.v === pview));
+  const n = found.size - listSeen, bd = $("listBadge"); bd.hidden = !(n > 0 && (ph === "race" || ph === "count")); bd.textContent = n > 0 ? n : "";
+  bd.setAttribute("aria-label", `${n} new`);
+  // Give up sits beside the switch on a phone, in the list's header otherwise
+  const gu = $("giveUp"), to = narrow.matches ? $("viewrow") : document.querySelector(".panelhead");
+  if (gu.parentNode !== to) to.append(gu);
+}
+for (const b of $("pview").querySelectorAll("button")) {
+  b.addEventListener("pointerdown", e => e.preventDefault());   // keep the input (and the phone keyboard) focused
+  b.onclick = () => { pview = b.dataset.v; render(); };
+}
+narrow.addEventListener?.("change", () => { listSig = ""; render(); });
 function render(){
   const ph = phase(), over = isOver();
   $("app").dataset.phase = ph;
+  renderView(ph);
   resolveColorClash();
   // Every country is one solid color: its only finder's, or the shared color when two or more players named it.
   // Other players' countries get a name label only once the game is over.
   const rv = rivals(), oppId = rv[0] || null;
   const gotOf = new Map(rv.map(uid => [uid, new Set(players.get(uid).got.map(Number))])), theirs = oppId ? gotOf.get(oppId) : null;
   const colors = new Map([me, ...rv].map(uid => [uid, colorOf(uid)]));
-  const fillFor = {me: colors.get(me), opp: rv.length === 1 ? colors.get(oppId) : null, both: SHARED, none: null};   // a country nobody named stays the pale land color
   const tally = {me: found.size, opp: theirs ? theirs.size : 0, both: 0, none: 0, alone: new Map([me, ...rv].map(uid => [uid, 0]))};
   if (!over) sel = null;
+  const own = ownerMap(), newest = [...found.keys()].pop();
   for (const c of LIST) {
     const mine = found.has(c.i), by = rv.filter(uid => gotOf.get(uid).has(c.i)); if (mine) by.unshift(me);
     const st = by.length > 1 ? "both" : mine ? "me" : by.length ? "opp" : "none";
     stateOf.set(c.i, st); if (st === "both" || st === "none") tally[st]++; else tally.alone.set(by[0], tally.alone.get(by[0]) + 1);
-    const fill = st === "both" ? SHARED : by.length ? colors.get(by[0]) : null, on = st !== "none", missed = over && !on, picked = sel === c.i;
+    // shared: the first finder's color (until the host has said who that was, the first in my list)
+    const first = st === "both" && by.includes(own[c.i]) ? own[c.i] : by[0];
+    const fill = by.length ? colors.get(first) : null, on = st !== "none", missed = over && !on, picked = sel === c.i, both = st === "both";
     fillAt.set(c.i, fill);
     (shapes.get(c.i) || []).forEach(s => {
-      s.style("fill", fill).classed("on", on).classed("sel", picked);
+      if (both && !s.classed("shared")) s.raise();   // its outline sits over its neighbors' borders
+      s.style("fill", fill).classed("on", on).classed("shared", both).classed("sel", picked);
       if (picked) s.raise();
       s.select("title").remove(); if (mine || over) s.append("title").text(c.name);
     });
     const p = pins.get(c.i); if (p) p.attr("display", on || over ? "none" : null);
     const mk = markers.get(c.i);
     if (mk) {
-      mk.style("fill", fill).classed("on", on).classed("sel", picked).attr("display", showMarkers || picked ? null : "none");
+      mk.style("fill", fill).classed("on", on).classed("shared", both).classed("sel", picked).attr("display", showMarkers || picked ? null : "none").attr("r", mkSize(c.i));
       mk.select("title").remove(); if (mine || over) mk.append("title").text(c.name);
     }
-    const l = labels.get(c.i); if (l) { l.on = picked || (showNames && (mine || over)); l.first = picked; l.must = mine && (l.small || l.tiny); l.dark = (st === "me" || st === "opp") && textOn(fill) === "#ffffff"; l.el.classed("missed", missed).classed("sel", picked); }
+    const l = labels.get(c.i); if (l) { l.on = picked || (showNames && (mine || over)); l.first = picked; l.must = mine && (l.small || l.tiny || c.i === newest); l.dark = on && textOn(fill) === "#ffffff"; l.el.classed("missed", missed).classed("sel", picked); }
   }
   labelsQuiet = over;
   layoutLabels(curK);
-  view = {ph, over, oppId, theirs, rv, gotOf, colors, fillFor, tally};
+  view = {ph, over, oppId, theirs, rv, gotOf, colors, tally};
   renderBoard(ph);
   renderLegend();
   if (over) renderReview(); else renderList();
@@ -893,17 +1073,20 @@ function renderBoard(ph){
 // Map key for the colors that aren't on the scoreboard
 function renderLegend(){
   const {over, theirs} = view, lg = $("legend"), keys = [];
-  if (theirs) keys.push([SHARED, view.rv.length > 1 ? "Shared" : "Both"]);
+  if (theirs) keys.push(["var(--land)", view.rv.length > 1 ? "Shared" : "Both", true]);   // outlined, in the first finder's color
   if (over) keys.push(["var(--land)", theirs ? "Nobody" : "Missed"]);
   lg.hidden = !keys.length; lg.textContent = "";
-  for (const [c, txt] of keys) { const k = el("span", "key"), s = el("i", "sw"); s.style.background = c; k.append(s, txt); lg.append(k); }
+  for (const [c, txt, ring] of keys) { const k = el("span", "key"), s = el("i", "sw" + (ring ? " ring" : "")); s.style.background = c; k.append(s, txt); lg.append(k); }
+  // phone List view: the same key under the list, since the map (and its key) is out of sight
+  const lg2 = $("legend2"); lg2.textContent = ""; lg2.hidden = !keys.length || over || !narrow.matches;
+  if (!lg2.hidden) lg2.append(...[...lg.childNodes].map(n => n.cloneNode(true)));
 }
 // While racing: my countries, newest first or by continent.
 function renderList(){
   $("review").hidden = true; $("tabs").hidden = false;
   const tabs = [["recent", "Newest"], ["cont", "By continent"]];
   let tab = tabRace; if (!tabs.some(t => t[0] === tab)) tab = wide.matches ? "cont" : "recent";
-  const sig = ["race", tab, [...found.keys()].join(), LIST.map(c => fillAt.get(c.i)).join()].join("|");
+  const sig = ["race", tab, [...found.keys()].join(), LIST.map(c => fillAt.get(c.i) + stateOf.get(c.i)).join()].join("|");
   if (sig === listSig) return; listSig = sig;
   const tb = $("tabs"); tb.textContent = "";
   for (const [k, txt] of tabs) {
@@ -911,7 +1094,7 @@ function renderList(){
     b.onclick = () => { tabRace = k; render(); };
     tb.append(b);
   }
-  const item = (c, cls) => { const n = el("span", "n" + (cls ? " " + cls : "")), d = el("i", "dot"); d.style.background = fillAt.get(c.i) || "var(--land)"; n.append(d, c.name); return n; };
+  const item = (c, cls) => { const n = el("span", "n" + (cls ? " " + cls : "")), d = el("i", "dot" + (stateOf.get(c.i) === "both" ? " ring" : "")); d.style.background = fillAt.get(c.i) || "var(--nobody)"; n.append(d, c.name); return n; };
   const strip = $("conts"), box = $("list"); strip.hidden = tab !== "recent"; strip.textContent = ""; box.textContent = "";
   box.setAttribute("role", "tabpanel"); box.setAttribute("aria-label", "Countries you found"); box.removeAttribute("aria-activedescendant");
   if (tab === "recent") {
@@ -970,12 +1153,12 @@ function renderReview(){
   $("rvSummary").textContent = !theirs ? `You found ${a} of ${TOTAL}` : ph !== "done" ? `You have ${a}. Waiting for ${many ? "the others" : nameOf(oppId)} to finish.`
     : many ? `${standings().title}, ${standings().sub}` : a === b ? `Tie, ${a} each` : `${a > b ? "You win" : nameOf(oppId) + " wins"}, ${Math.max(a, b)} to ${Math.min(a, b)}`;
   const {scope, rows} = reviewRows();
-  const sig = ["review", ph, rvFilter, rvRegion, norm(rvQuery), LIST.map(c => fillAt.get(c.i)).join(), kinds.join(), JSON.stringify(theirs ? ownerMap() : 0)].join("|");
+  const sig = ["review", ph, rvFilter, rvRegion, norm(rvQuery), LIST.map(c => fillAt.get(c.i) + stateOf.get(c.i)).join(), kinds.join(), JSON.stringify(theirs ? ownerMap() : 0)].join("|");
   if (sig === listSig) return; listSig = sig;
   const fb = $("filters"); fb.textContent = ""; fb.classList.toggle("many", many);
   for (const [k, txt] of kinds) {
     const n = scope.filter(c => inFilter(k, c.i)).length, btn = el("button", "tab"), lab = el("span", "k"); btn.type = "button"; btn.dataset.f = k; btn.dataset.n = n;
-    if (k !== "all") { const d = el("i", "sw"); d.style.background = k === "me" ? colors.get(me) : k === "opp" ? colors.get(oppId) : k.startsWith("u:") ? colors.get(k.slice(2)) : k === "both" ? SHARED : "var(--land)"; lab.append(d); }
+    if (k !== "all") { const d = el("i", "sw" + (k === "both" ? " ring" : "")); d.style.background = k === "me" ? colors.get(me) : k === "opp" ? colors.get(oppId) : k.startsWith("u:") ? colors.get(k.slice(2)) : "var(--nobody)"; lab.append(d); }
     lab.append(txt); btn.append(lab, el("b", null, n)); btn.setAttribute("aria-pressed", String(k === rvFilter));
     btn.setAttribute("aria-label", `${k === "opp" ? "Found by " + nameOf(oppId) : k.startsWith("u:") ? "Found by " + txt : k === "me" && theirs ? "Found by you" : k === "both" ? (many ? "Found by more than one player" : "Found by both") : k === "none" && theirs ? "Found by nobody" : txt}: ${n}`);
     btn.onclick = () => { rvFilter = k; render(); };
@@ -987,7 +1170,7 @@ function renderReview(){
   if (sel != null && rows.some(c => c.i === sel)) box.setAttribute("aria-activedescendant", "rv-" + sel); else box.removeAttribute("aria-activedescendant");
   if (!rows.length) { box.append(el("span", "empty", "No countries match.")); return; }
   for (const c of rows) {
-    const st = stateOf.get(c.i), row = el("div", "rv"), sw = el("i", "sw"); sw.style.background = fillAt.get(c.i) || "var(--land)";
+    const st = stateOf.get(c.i), row = el("div", "rv"), sw = el("i", "sw" + (st === "both" ? " ring" : "")); sw.style.background = fillAt.get(c.i) || "var(--nobody)";
     row.id = "rv-" + c.i; row.dataset.i = c.i; row.dataset.st = st; row.setAttribute("role", "option"); row.setAttribute("aria-selected", String(sel === c.i));
     row.append(sw, el("span", "nm", c.name));
     if (SMALL.has(c.i)) { const m = el("i", "mkdot"); m.title = "Small place, shown as a marker on the map"; row.append(m); }
@@ -1113,14 +1296,145 @@ function renderFlow(box, ids){
 }
 let flowResizeT = null;
 addEventListener("resize", () => { clearTimeout(flowResizeT); flowResizeT = setTimeout(() => { const f = $("flow"); if (f && !$("sheet").hidden && Math.abs(+f.dataset.w - $("result").clientWidth) > 2) render(); }, 150); });
+// ---- history: one record per finished round, kept only in this browser (localStorage). Anything read back is
+// checked field by field; a broken or foreign entry is dropped, and the game works the same without storage.
+// Opponents are matched across games by the name they set; players without a name are counted together as "Unnamed".
+const HIST_KEY = "country-race-history", HIST_MAX = 200, DURS = [0, 600, 900, 1200];
+const okDur = d => DURS.includes(+d) ? +d : 900;
+let histOpen = false, histSig = "";
+function cleanGame(g){
+  if (!g || typeof g !== "object" || Array.isArray(g)) return null;
+  const int = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
+  const side = p => p && typeof p === "object" && !Array.isArray(p) && int(p.n, 0, TOTAL)
+    ? {name: cleanName(p.name), label: cleanName(p.label), color: typeof p.color === "string" && PALETTE[p.color] ? p.color : null, n: p.n} : null;
+  const mine = side(g.me), opps = Array.isArray(g.opps) && g.opps.length <= MAX_GUESTS ? g.opps.map(side) : null;
+  if (typeof g.id !== "string" || !/^[A-Za-z0-9]{1,16}:\d{1,16}$/.test(g.id) || !mine || !opps || opps.some(o => !o) || !Array.isArray(g.got)) return null;
+  if (!Number.isFinite(g.at) || g.at < 1.5e12 || g.at > Date.now() + 864e5) return null;
+  const got = Array.isArray(g.got) ? [...new Set(g.got.slice(0, TOTAL).filter(k => typeof k === "string" && BYKEY.has(k)))] : [];
+  const winner = typeof g.winner === "string" && /^(me|tie|solo|opp:[0-4])$/.test(g.winner) ? g.winner : "solo";
+  // missed: countries another player named in this round and I didn't
+  const missed = Array.isArray(g.missed) && opps.length ? [...new Set(g.missed.slice(0, TOTAL).filter(k => typeof k === "string" && BYKEY.has(k) && !got.includes(k)))] : [];
+  return {id: g.id, at: g.at, secs: int(g.secs, 0, 86400) ? g.secs : 0, dur: DURS.includes(g.dur) ? g.dur : 0, me: mine, opps, winner, got, missed};
+}
+// Parsed once per stored text: read again only when what's stored has changed (another tab, or my own write)
+let histRaw = null, histCache = [];
+function loadHistory(){
+  let text = null; try { text = localStorage.getItem(HIST_KEY); } catch {}
+  if (text === histRaw) return histCache.slice();
+  histRaw = text; histCache = parseHistory(text); return histCache.slice();
+}
+function parseHistory(text){
+  let raw = null; try { raw = JSON.parse(text); } catch {}
+  const games = raw && typeof raw === "object" && Array.isArray(raw.games) ? raw.games.slice(-HIST_MAX) : [];
+  const seen = new Set(), out = [];
+  for (const g of games) { const c = cleanGame(g); if (c && !seen.has(c.id)) { seen.add(c.id); out.push(c); } }
+  return out.sort((a, b) => a.at - b.at);
+}
+// A player's own name, as they set it (not the "Friend" or color stand-in)
+function setName(uid){ return cleanName(present().find(p => p.uid === uid)?.name || players.get(uid)?.name || ""); }
+// Once a round is over: save it (again, if a late score arrives); one record per round
+function recordRound(){
+  if (round == null || !startedAt) return;
+  const rv = rivals(), id = shared ? `${code}:${round}` : `solo:${startedAt}`;
+  const lastDone = Math.max(myDone || 0, ...[...players.values()].map(p => p.doneAt || 0));
+  const end = timeUp() ? startedAt + duration * 1000 : endedAt || lastDone || Date.now();
+  const opps = rv.map(uid => ({name: setName(uid), label: nameOf(uid), color: colorKeyOf(uid), n: countOf(uid)}));
+  const best = Math.max(0, ...opps.map(o => o.n));
+  const winner = !opps.length ? "solo" : found.size > best ? "me" : found.size === best ? "tie" : "opp:" + opps.findIndex(o => o.n === best);
+  const rec = {id, at: startedAt, secs: Math.max(0, Math.min(86400, Math.round((end - startedAt) / 1000))), dur: okDur(duration), me: {name: myName, label: "You", color: myColor, n: found.size}, opps, winner, got: [...found.keys()].map(i => LIST[i].key),
+    missed: [...new Set(rv.flatMap(uid => players.get(uid)?.got || []))].filter(i => LIST[i] && !found.has(i)).map(i => LIST[i].key)};
+  const sig = JSON.stringify(rec); if (sig === histSig) return; histSig = sig;
+  const games = loadHistory().filter(g => g.id !== id); games.push(rec);
+  try { localStorage.setItem(HIST_KEY, JSON.stringify({v: 1, games: games.slice(-HIST_MAX)})); } catch {}
+  histRaw = null;   // read back fresh next time
+}
+// Win-loss against each opponent (each other player in a round counts as one meeting). Solo rounds don't count.
+function histTally(games){
+  const m = new Map();
+  for (const g of games) for (const o of g.opps) {
+    const key = o.name.toLowerCase(), t = m.get(key) || {name: o.name || "Unnamed", unnamed: !o.name, w: 0, l: 0, t: 0, games: 0};
+    t.games++; if (g.me.n > o.n) t.w++; else if (g.me.n < o.n) t.l++; else t.t++;
+    m.set(key, t);
+  }
+  return [...m.values()].sort((a, b) => a.unnamed - b.unnamed || b.games - a.games || a.name.localeCompare(b.name));
+}
+const wl = t => `${t.w}–${t.l}` + (t.t ? `–${t.t}` : "");
+// One line for the results card: "You lead Alex 5–3 overall"
+function h2hLine(uid){
+  const name = setName(uid); if (!name) return null;
+  const t = histTally(loadHistory()).find(x => !x.unnamed && x.name.toLowerCase() === name.toLowerCase()); if (!t) return null;
+  const score = el("b", null, t.w >= t.l ? wl(t) : `${t.l}–${t.w}` + (t.t ? `–${t.t}` : ""));
+  return t.w > t.l ? ["You lead ", name, " ", score, " overall"] : t.w < t.l ? [name, " leads ", score, " overall"] : ["You and ", name, " are level at ", score];
+}
+function renderHistory(){
+  const games = loadHistory(), box = $("histBody"), tally = histTally(games); box.textContent = "";
+  const vs = games.filter(g => g.opps.length), wins = vs.filter(g => g.winner === "me").length;
+  const tiles = el("div", "tiles"), tile = (label, big, small, cls) => { const t = el("div", "tile"), b = el("b", null, big); if (small) b.append(el("small", cls, small)); t.append(el("span", "lbl", label), b); tiles.append(t); };
+  tile("Rounds", games.length);
+  tile("Won", wins, vs.length ? `of ${vs.length}` : "");
+  tile("Best round", games.length ? Math.max(...games.map(g => g.me.n)) : 0, games.length ? "countries" : "", "hide-n");
+  box.append(tiles);
+  const sec = (title, right) => { const s = el("div", "hsec"), h = el("p", "sech", title); if (right) h.append(el("span", null, right)); s.append(h); return s; };
+  const table = (heads) => { const t = el("table", "htable"), tr = el("tr"); for (const [txt, cls] of heads) tr.append(el("th", cls, txt)); const th = el("thead"); th.append(tr); t.append(th, el("tbody")); return t; };
+  const row = (t, cells) => { const tr = el("tr"); for (const c of cells) { const td = el("td", c.cls); if (c.node) td.append(c.node); else td.textContent = c.text; tr.append(td); } t.tBodies[0].append(tr); };
+  const grid = el("div", "hgrid"), side = el("div", "hside");
+  // recent rounds, newest first
+  const recent = sec("Recent rounds", games.length > 20 ? `last 20 of ${games.length}` : "");
+  if (!games.length) recent.append(el("p", "hempty", "Finished rounds show up here."));
+  else {
+    const t = table([["When", "when"], ["Against"], ["Score", "r"], ["Time", "r hide-n"], ["Result", "r"]]);
+    t.id = "histGames";
+    for (const g of games.slice(-20).reverse()) {
+      const who = el("span", "vs"); const names = g.opps.map(o => o.name || o.label || "Friend").join(", ");
+      if (g.opps.length) { const d = el("i", "sw"); d.style.background = PALETTE[g.opps[0].color] || "var(--nobody)"; who.append(d); }
+      who.append(el("span", g.opps.length ? null : "m", names || "Solo"));
+      const best = Math.max(0, ...g.opps.map(o => o.n)), res = g.winner === "me" ? ["Won", "pill won"] : g.winner === "tie" ? ["Tie", "pill"] : g.winner === "solo" ? ["Solo", "pill"] : ["Lost", "pill"];
+      row(t, [{text: new Date(g.at).toLocaleDateString(undefined, {month: "short", day: "numeric"}), cls: "m"}, {node: who}, {text: g.opps.length ? `${g.me.n}–${best}` : String(g.me.n), cls: "r"},
+        {text: clockText(g.secs), cls: "r m hide-n"}, {node: el("span", res[1], res[0]), cls: "r"}]);
+    }
+    recent.append(t);
+  }
+  grid.append(recent);
+  // tally per opponent
+  const opp = sec("Head to head");
+  if (!tally.length) opp.append(el("p", "hempty", "No rounds against other players yet."));
+  else {
+    const t = table([["Opponent"], ["W–L", "r"], ["Rounds", "r"]]); t.id = "histTally";
+    for (const x of tally) row(t, [{text: x.unnamed ? "Unnamed players" : x.name, cls: x.unnamed ? "m" : null}, {text: wl(x), cls: "r"}, {text: String(x.games), cls: "r m"}]);
+    opp.append(t);
+  }
+  // the countries I most often didn't name
+  // Real misses only: a country another player named in a round where I didn't, most often first (ties: how often I
+  // missed it in any round). Shown once there are three rounds against others.
+  const miss = sec("Countries you miss most", vs.length >= 3 ? `${vs.length} rounds` : "");
+  const real = new Map(), total = new Map();
+  for (const g of games) { for (const k of g.missed) real.set(k, (real.get(k) || 0) + 1); const got = new Set(g.got); for (const c of LIST) if (!got.has(c.key)) total.set(c.key, (total.get(c.key) || 0) + 1); }
+  const top = vs.length >= 3 ? [...real].map(([k, r]) => [BYKEY.get(k), r]).sort((a, b) => b[1] - a[1] || (total.get(b[0].key) || 0) - (total.get(a[0].key) || 0) || a[0].name.localeCompare(b[0].name)).slice(0, 10) : [];
+  if (!top.length) miss.append(el("p", "hempty", "None yet"));
+  else {
+    const t = table([["Country"], ["Missed", "r wide"]]); t.id = "histMiss";
+    for (const [c, k] of top) { const cell = el("span"), b = el("i", "mbar"); b.style.width = Math.max(4, Math.round(k / vs.length * 40)) + "px"; cell.append(b, String(k)); row(t, [{text: c.name}, {node: cell, cls: "r"}]); }
+    miss.append(t);
+  }
+  side.append(opp, miss); grid.append(side); box.append(grid);
+}
+$("histBtn").onclick = () => { histOpen = true; renderHistory(); render(); $("histSheet").scrollTop = 0; $("histClose").focus(); };
+$("histClose").onclick = () => { histOpen = false; render(); $("histBtn").focus(); };
+addEventListener("keydown", e => { if (e.key === "Escape" && histOpen) $("histClose").click(); });
 // Lobby and results card
 function renderSheet(ph, tally){
   const open = ph === "home" || ph === "lobby" || ph === "done";
   if (ph !== "done") sheetHidden = false;
   const wasHidden = $("sheet").hidden;
-  $("sheet").hidden = !open || sheetHidden; $("sheetBtn").hidden = !(ph === "done" && sheetHidden);
-  for (const e of document.querySelectorAll(".play, .panel, .mapwrap")) e.inert = !$("sheet").hidden;   // nothing behind the card takes focus
+  if (ph !== "home" && ph !== "lobby") histOpen = false;   // history opens from the lobby only
+  $("histSheet").hidden = !histOpen;
+  $("sheet").hidden = !open || sheetHidden || histOpen; $("sheetBtn").hidden = !(ph === "done" && sheetHidden);
+  for (const e of document.querySelectorAll(".play, .viewrow, .panel, .mapwrap")) e.inert = !$("sheet").hidden || histOpen;   // nothing behind the card takes focus
   $("again").hidden = ph !== "done";
+  // the card says it: the panel behind it doesn't repeat the result or show its filters peeking out
+  for (const e of document.querySelectorAll(".rvtop, .rvrow, #filters")) e.hidden = ph === "done" && !$("sheet").hidden;
+  $("histBtn").hidden = ph !== "home" && ph !== "lobby";
+  if (ph === "done") recordRound();
   if (!open) { lastSheetPhase = ph; return; }
   const ps = present(), versus = shared && room && ps.length > 1, opps = ps.filter(p => p.uid !== me), opp = opps[0];
   const other = view.oppId, duel = ph === "done" && !!view.theirs, many = duel && view.rv.length > 1;
@@ -1131,45 +1445,52 @@ function renderSheet(ph, tally){
   if (ph === "lobby") { title = "Race lobby"; sub = versus || isHost ? "" : "Connecting you to the game."; }
   if (ph === "done") {
     const a = tally.me, b = tally.opp;
-    if (many) ({title, sub} = standings());
+    if (many) ({title} = standings());   // three or more: the ranked scores below say the rest
     else if (duel) { title = a === b ? "It's a tie" : a > b ? "You win" : `${nameOf(other)} wins`; sub = a === b ? `${a} each` : `${Math.max(a, b)} to ${Math.min(a, b)}`; }
     else { title = a === TOTAL ? "All 197 found" : "Round over"; sub = `You found ${a} of ${TOTAL}`; }
     if (saidResult !== round) { saidResult = round; announce(`${title}. ${sub}`); }
   }
   $("sheetTitle").textContent = title; $("sheetSub").textContent = sub;
-  // results
-  const rs = $("result"); rs.hidden = ph !== "done"; rs.textContent = ""; rs.classList.toggle("many", many);
+  // head-to-head so far, from this browser's history (two players, the other one named)
+  const hh = $("h2h"), hhText = ph === "done" && duel && !many ? h2hLine(other) : null;
+  hh.hidden = !hhText; hh.textContent = "";
+  if (hhText) hh.append(...hhText);
+  // results: ranked scores, the world as one bar, the game over time
+  const rs = $("result"); rs.hidden = ph !== "done"; rs.textContent = "";
   if (ph === "done") {
-    // two players: me, then them; more: everyone ranked, most found first
-    const ranked = many ? standings().ids : duel ? [me, other] : [me];
+    const ranked = duel ? standings().ids : [me], scores = el("div", "rscores" + (many ? " many" : duel ? "" : " solo"));
     ranked.forEach((uid, k) => {
       const n = countOf(uid), st = el("div", "rstat"), d = el("i", "sw"); d.style.background = colorOf(uid); st.dataset.uid = uid;
-      st.append(d, el("div", "rwho", (many ? `${k + 1}. ` : "") + (uid === me ? "You" : nameOf(uid)) + (hasLeft(uid) ? " (left)" : "")), el("div", "big", n), el("div", "small", `${pct(n)} of the world`));
-      rs.append(st);
+      st.append(d, el("div", "rwho", (many ? `${k + 1}. ` : "") + (uid === me ? (duel ? "You" : "Found") : nameOf(uid)) + (hasLeft(uid) ? " (left)" : "")), el("div", "big", n));
+      scores.append(st);
     });
-    // The whole world as one bar: mine alone, shared, each other player's alone, nobody
-    const parts = many ? [[colorOf(me), "Only you", tally.alone.get(me)], ...view.rv.map(uid => [colorOf(uid), `Only ${nameOf(uid)}`, tally.alone.get(uid)]), [SHARED, "Shared", tally.both], ["var(--land)", "Nobody", tally.none]]
-      : duel ? [[colorOf(me), "Only you", tally.me - tally.both], [SHARED, "Both", tally.both], [colorOf(other), `Only ${nameOf(other)}`, tally.opp - tally.both], ["var(--land)", "Nobody", tally.none]]
-      : [[colorOf(me), "Found", tally.me], ["var(--land)", "Missed", tally.none]];
-    const split = el("div", "split"), bar = el("div", "splitbar"), key = el("div", "splitkey");
+    rs.append(scores);
+    // The whole world as one bar: mine alone, shared (outlined), each other player's alone, nobody
+    const parts = many ? [[colorOf(me), "Only you", tally.alone.get(me)], ...view.rv.map(uid => [colorOf(uid), `Only ${nameOf(uid)}`, tally.alone.get(uid)]), ["var(--nobody)", "Shared", tally.both, true], ["var(--nobody)", "Nobody", tally.none]]
+      : duel ? [[colorOf(me), "Only you", tally.me - tally.both], ["var(--nobody)", "Both", tally.both, true], [colorOf(other), `Only ${nameOf(other)}`, tally.opp - tally.both], ["var(--nobody)", "Nobody", tally.none]]
+      : [[colorOf(me), "Found", tally.me], ["var(--nobody)", "Missed", tally.none]];
+    const sec1 = el("div", "rsec"), h1 = el("p", "sech", "The world"), split = el("div", "split"), bar = el("div", "splitbar"), key = el("div", "splitkey");
+    h1.append(el("span", null, `${TOTAL} countries`));
     bar.setAttribute("role", "img"); bar.setAttribute("aria-label", parts.map(p => `${p[1]}: ${p[2]}`).join(", "));
-    for (const [color, text, n] of parts) {
-      if (n) { const seg = el("i"); seg.style.background = color; seg.style.flex = `${n} 0 0`; bar.append(seg); }
-      const k = el("span"), d = el("i", "sw"); d.style.background = color; k.append(d, text, el("b", null, n)); key.append(k);
+    for (const [color, text, n, ring] of parts) {
+      if (n) { const seg = el("i", ring ? "ring" : null); seg.style.background = color; seg.style.flex = `${n} 0 0`; bar.append(seg); }
+      const k = el("span"), d = el("i", "sw" + (ring ? " ring" : "")); d.style.background = color; k.append(d, text, el("b", null, n)); key.append(k);
     }
-    split.append(bar, key); rs.append(split);
-    renderFlow(rs, duel ? [me, ...view.rv] : [me]);
+    split.append(bar, key); sec1.append(h1, split); rs.append(sec1);
+    const sec2 = el("div", "rsec"); sec2.append(el("p", "sech", "Over time")); rs.append(sec2);
+    renderFlow(sec2, duel ? [me, ...view.rv] : [me]);
+    if (!sec2.querySelector(".flow")) sec2.remove();
   }
   // who is here, in which color
   const pl = $("players"); pl.hidden = !shared; pl.textContent = "";
   if (shared) {
+    const ph1 = el("p", "sech", "Players"); ph1.append(el("span", null, `${ps.length} of 6`)); pl.append(ph1);
     for (const p of ps) {
       const row = el("div", "prow" + (p.ready ? " ready" : "")), d = el("i", "sw"); d.style.background = colorOf(p.uid);
       row.append(d, el("span", null, p.uid === me ? "You" : nameOf(p.uid)), el("span", "tag", p.ready ? (ph === "done" ? "Wants a rematch" : "Ready") : (ph === "done" ? "" : "Not ready")));
       pl.append(row);
     }
     if (ps.length < 2) pl.append(el("span", "empty", ph === "done" ? "The other player isn't connected." : "Waiting for the other player to join."));
-    else if (ps.length < 6 && ph === "lobby") pl.append(el("span", "empty", `Up to 6 players: send the link to ${6 - ps.length} more.`));
   }
   // color picker: a color another player holds can't be picked, and shows who holds it
   const cp = $("colors"), holders = colorHolders();
@@ -1210,17 +1531,19 @@ function renderAgain(ph, versus, guestAlone, opps){
   const d = +$("dur").value, limit = d ? `${d / 60} min` : "no time limit", names = list => list.map(p => nameOf(p.uid)).join(", ");
   const set = opps.filter(p => p.ready), waiting = opps.filter(p => !p.ready), asked = versus && !ready && set.length > 0, one = set.length === 1 ? set[0].uid : null;
   let text = [], label = "Rematch";
-  if (!versus && !guestAlone) { label = "Play again"; text = [`Same settings, ${limit}`]; }
+  if (!versus && !guestAlone) label = "Play again";
   else if (guestAlone) text = ["The other player isn't connected"];
   else if (ready && !waiting.length) { label = "Starting"; text = ["Starting the next round"]; }
   else if (ready) { label = "Cancel"; text = [`Waiting for ${names(waiting)}`]; }
   else if (asked) text = [el("b", null, names(set)), one ? " wants a rematch" : " want a rematch"];
-  else text = [`Same colors, ${limit}`];
+  else text = [];
+  // the plain case says nothing; a line only when the next round differs from the last
+  if (!text.length || (!versus && !guestAlone)) { const ch = []; if (d !== duration) ch.push(limit); if (myColor !== roundColor) ch.push("new color"); text = ch.length ? [`Next round: ${ch.join(", ")}`] : []; }
   const sig = JSON.stringify([asked && one && colorOf(one), text.map(t => t.textContent ?? t)]);
   if (msg.dataset.sig !== sig) { msg.dataset.sig = sig; msg.textContent = ""; } else text = null;   // rebuilt only when it changes, so it's announced once
   if (text && asked && one) { const dot = el("i", "sw"); dot.style.background = colorOf(one); msg.append(dot); }
-  if (text) { const sp = el("span"); sp.append(...text); msg.append(sp); }
-  bar.classList.toggle("asked", asked);
+  if (text?.length) { const sp = el("span"); sp.append(...text); msg.append(sp); }
+  bar.classList.toggle("asked", asked); bar.classList.toggle("bare", !msg.textContent);
   b.textContent = label; b.disabled = guestAlone || (versus && ready && !waiting.length);
   b.classList.toggle("go", !(versus && ready));
 }
@@ -1385,7 +1708,7 @@ function applyState(d){
   if (newRound !== round) {
     round = newRound; found.clear(); players.clear(); unsubs.forEach(u => u()); unsubs = [];
     myJoined = null; myDone = null; announced = false; ready = false; joinedRound = null;
-    guestOwner = table(); guestFlow = table(); sheetHidden = false; tabRace = null; listSig = "";
+    guestOwner = table(); guestFlow = table(); sheetHidden = false; tabRace = null; listSig = ""; pview = "map"; listSeen = 0; roundColor = myColor;
     sel = null; rvFilter = "all"; rvRegion = "all"; rvQuery = ""; $("rvSearch").value = ""; $("rvRegion").value = "all";
     if (shared && round != null) { enterRound(round); setTimeout(() => onRoomPeers(room.peers()), 0); }
     else if (round != null) players.set(me, {joinedAt: Date.now(), count: 0, doneAt: null});
@@ -1489,6 +1812,7 @@ function sendState(c){ sendOn(c, {t: "state", game: hostGame, now: Date.now(), r
 // Presence from another browser: only known fields, each of the expected type and range, and not too big.
 // On the host, rounds stay near its own, times stay near now, counts stay within the 197.
 const okTime = t => { t = +t; return Number.isFinite(t) && t > 0 && t < Date.now() + 3600e3 ? t : null; };
+const okRound = r => Number.isInteger(r) && r >= 0 && r <= 1e6;
 function cleanPresence(pr){
   if (!pr || typeof pr !== "object" || Array.isArray(pr)) return null;
   try { if (JSON.stringify(pr).length > 4000) return null; } catch { return null; }
@@ -1533,14 +1857,16 @@ function onMessage(m){
     case "own": if (!isHost && round != null && m.round === round) { setOwner(m.owner); if (m.flow) setFlow(m.flow); render(); } break;
     case "start":
       // The start signal carries a countdown length, not a clock time, so both screens count down together
-      if (isHost || typeof m.round !== "number" || m.round <= (round || 0)) break;
-      applyState({round: m.round, startedAt: Date.now() + Math.min(+m.delay || 0, 5000), duration: +m.duration || 0, endedAt: null});
+      // Round: a sane whole number above mine; duration: one of the time limits on offer
+      if (isHost || !okRound(m.round) || m.round <= (round || 0) || m.round > (round || 0) + 1) break;   // only the next round
+      applyState({round: m.round, startedAt: Date.now() + Math.min(Math.max(+m.delay || 0, 0), 5000), duration: okDur(m.duration), endedAt: null});
       break;
     case "state": {
       if (isHost) break;
       // Times come from the host's clock; shift them onto this one
-      const g = m.game && typeof m.game.round === "number" ? {...m.game} : null, skew = Date.now() - (+m.now || Date.now());
-      if (g) { g.startedAt = (+g.startedAt || 0) + skew; g.endedAt = g.endedAt ? g.endedAt + skew : null; }
+      const mg = m.game, skew = Date.now() - (Number.isFinite(+m.now) && +m.now > 0 ? +m.now : Date.now());
+      if (mg != null && (typeof mg !== "object" || !okRound(mg.round) || mg.round > (round || 0) + 1000)) break;   // a game that makes no sense is ignored, not applied
+      const g = mg ? {round: mg.round, startedAt: (Number.isFinite(+mg.startedAt) ? +mg.startedAt : 0) + skew, duration: okDur(mg.duration), endedAt: Number.isFinite(+mg.endedAt) && +mg.endedAt > 0 ? +mg.endedAt + skew : null} : null;
       if ((g?.round ?? null) !== round || (g && (g.endedAt || null) !== endedAt)) applyState(g);
       if (g && m.round === round) { setOwner(m.owner); if (m.flow) setFlow(m.flow); ingestPlayers(round, m.players); }
       break;
@@ -1587,7 +1913,6 @@ function attachGuest(c, uid){
 }
 function guestDropped(l){
   const name = nameOf(l.uid); links.delete(l.uid); try { l.c.close(); } catch {}
-  if (l.presence) toast(`${name} disconnected`);
   setStatus(`${links.size ? name : "The other player"} disconnected. They can rejoin with the same link.`);
   send({t: "gone", uid: l.uid}); onRoomPeers(room.peers()); render();
 }
